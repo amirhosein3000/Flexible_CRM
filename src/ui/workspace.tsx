@@ -9,7 +9,9 @@ import {Dialogs,RecordDrawer} from "./forms";
 import {Board,Overview,RecordTable,TasksPage} from "./pages";
 import {Avatar,Button,Empty,ErrorNotice,Form,formText,Input,Modal,ObjectIcon} from "./primitives";
 import {LanguageSwitch} from "./regional";
+import {WorkflowHistory} from "./workflow-history";
 import {auditLabel} from "../i18n/audit";
+import {searchText} from "../i18n/format";
 import type {Bootstrap,Detail,DialogState,Execute,Filters,ListData,ObjectDef,Read,Space,User} from "./types";
 
 async function api<T>(path:string,method="GET",data?:unknown):Promise<T> {
@@ -110,13 +112,13 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
   const read=useCallback<Read>((params)=>api(endpoint+"?"+new URLSearchParams(params)),[endpoint]);
   const exec=useCallback<Execute>((action,data)=>api(endpoint,"POST",{action,data}),[endpoint]);
   const refresh=()=>setGeneration(g=>g+1);
-  const go=useCallback((next:string)=>{
-    setPage(next);setFilters({});setMobileNav(false);setError("");
+  const go=useCallback((next:string,query:Filters={})=>{
+    setPage(next);setFilters(query);setMobileNav(false);setError("");
     window.history.replaceState(null,"",next==="overview"?location.pathname:"#"+next);
   },[]);
   useEffect(()=>{
     const hash=window.location.hash.slice(1);
-    if(/^(overview|tasks|settings|workflow|pipeline(?:\/[a-f0-9-]+){0,2}|object\/[a-f0-9-]+)$/.test(hash)) setPage(hash);
+    if(/^(overview|tasks(?:\/due)?|settings|workflow|pipeline(?:\/[a-f0-9-]+){0,2}|object\/[a-f0-9-]+)$/.test(hash)) setPage(hash);
   },[]);
   useEffect(()=>{
     let live=true;
@@ -133,6 +135,7 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
   const [section,sub,stage]=page.split("/");
   const selectedObject=data?.objects.find(o=>o.id===sub);
   const pipeline=section==="pipeline"?(data?.pipelines.find(p=>p.id===sub)??data?.pipelines[0]):undefined;
+  const boardStage=stage??(pipeline?.stages.some(item=>item.id===filters.stageId)?filters.stageId:undefined);
   const listObject=section==="object"?selectedObject?.id:pipeline?.object_id;
   const surface=[section,listObject,pipeline?.id,stage].join("|");
   useEffect(()=>{
@@ -141,13 +144,13 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
     setLoadingList(true);
     const timer=setTimeout(()=>{
       const params:Record<string,string>={kind:"list",objectId:listObject};
-      if(pipeline) {params.limit="100";params.pipelineId=pipeline.id;}
-      if(stage) params.stageId=stage;
       for(const [key,value] of Object.entries(filters)) if((typeof value==="string"&&value)||typeof value==="number") params[key]=String(value);
+      if(pipeline) {params.limit="100";params.pipelineId=pipeline.id;}
+      if(boardStage) params.stageId=boardStage;
       read<ListData>(params).then(value=>{if(live){setLoaded({surface,value});setError("");}}).catch(e=>{if(live)setError(e.message);}).finally(()=>{if(live)setLoadingList(false);});
     },130);
     return ()=>{live=false;clearTimeout(timer);};
-  },[read,generation,listObject,pipeline,stage,filters,surface]);
+  },[read,generation,listObject,pipeline,boardStage,filters,surface]);
   useEffect(()=>{
     if(!detailId)return;
     let live=true;
@@ -189,19 +192,28 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
       <main id="main-content" tabIndex={-1}>
         {(error||authError)&&<div className="page-error"><ErrorNotice text={error||authError} retry={()=>{setError("");refresh();}}/></div>}
         {!props||!data?<Loading/>:section==="overview"?<Overview {...props} userName={user.name}/>
-        :section==="tasks"?<TasksPage {...props} taskChange={task=>void perform("taskStatus",{id:task.id,status:task.status==="open"?"done":"open"},t("taskUpdated"))}/>
-        :section==="pipeline"?<Board {...props} pipeline={pipeline} result={currentList} selectedStage={stage} canManage={manage} move={(row,pipeline,stageId)=>{
+        :section==="tasks"?<TasksPage key={page} {...props} showDue={sub==="due"} taskChange={task=>void perform("taskStatus",{id:task.id,status:task.status==="open"?"done":"open"},t("taskUpdated"))}/>
+        :section==="pipeline"?<Board {...props} pipeline={pipeline} result={currentList} selectedStage={boardStage} filters={filters} setFilters={setFilters} canManage={manage} move={(row,pipeline,stageId)=>{
           if(!currentList)return Promise.resolve();
           return perform("saveRecord",{id:row.id,version:row.version,revision:currentList.object.revision,objectId:row.object_id,title:row.title,ownerId:row.owner_id,pipelineId:pipeline.id,stageId},t("stageUpdated"));
         }}/>
-        :section==="object"&&selectedObject?(currentList?<RecordTable key={selectedObject.id} {...props} result={currentList} object={selectedObject} filters={filters} setFilters={setFilters} canManage={manage} workspace={workspace.id} loading={loadingList} restore={r=>void perform("restoreRecord",{id:r.id,version:r.version},t("recordRestored"))} changeMode={()=>go("pipeline/"+data.pipelines.find(p=>p.object_id===selectedObject.id)?.id)}/>:<Loading/>)
+        :section==="object"&&selectedObject?(currentList?<RecordTable key={selectedObject.id} {...props} result={currentList} object={selectedObject} filters={filters} setFilters={setFilters} canManage={manage} workspace={workspace.id} loading={loadingList} restore={r=>void perform("restoreRecord",{id:r.id,version:r.version},t("recordRestored"))} changeMode={query=>{
+          const choices=data.pipelines.filter(p=>p.object_id===selectedObject.id);
+          const target=choices.find(p=>p.id===query.pipelineId)??choices.find(p=>p.stages.some(s=>s.id===query.stageId))??choices[0];
+          if(target)go("pipeline/"+target.id,{...query,archived:undefined,offset:0,stageId:target.stages.some(s=>s.id===query.stageId)?query.stageId:undefined});
+        }}/>:<Loading/>)
         :section==="settings"?<Settings data={data} read={read} manage={manage} perform={perform} open={setDialog} refreshKey={generation}/>
-        :section==="workflow"&&manage?<Automations data={data} open={setDialog} retry={id=>void perform("retryWorkflowJob",id,t("jobQueued"))} toggle={(id,enabled)=>void perform("setWorkflow",{id,enabled},enabled?t("automationEnabled"):t("automationPaused"))}/>
+        :section==="workflow"&&manage?<Automations data={data} read={read} open={setDialog} retry={id=>void perform("retryWorkflowJob",id,t("jobQueued"))} toggle={(id,enabled)=>void perform("setWorkflow",{id,enabled},enabled?t("automationEnabled"):t("automationPaused"))}/>
         :<div className="page"><Empty title={t("thisPageIsnTAvailable")}>{t("chooseAWorkspaceAreaFromTheNavigation")}</Empty></div>}
       </main>
     </div>
     {toast&&<div className="toast" role="status"><Check size={17}/>{toast}</div>}
-    {showSearch&&<SearchDialog read={read} close={()=>setShowSearch(false)} select={showRecord}/>}
+    {showSearch&&<SearchDialog read={read} close={()=>setShowSearch(false)} select={showRecord} shortcuts={[
+      ...nav.map(({name,id,icon})=>({name,icon,run:()=>go(id)})),
+      ...(data&&write?[{name:t("newTask"),icon:Plus,run:()=>setDialog({kind:"task"})}]:[]),
+      ...(data?[{name:t("copilot"),icon:Sparkles,run:()=>setCopilot(true)}]:[]),
+      ...(manage?[{name:t("automations"),icon:Workflow,run:()=>go("workflow")}]:[]),
+    ]}/>}
     {showNotifications&&<Modal title={t("notifications")} description={t("updatesAssignedToYouInThisWorkspace")} close={()=>setShowNotifications(false)}>{data?.notifications.length?<ul className="notification-list">{data.notifications.map(n=><li key={n.id}><Bell size={16}/><bdi dir="auto">{n.message}</bdi></li>)}</ul>:<Empty title={t("youReAllCaughtUp")} icon={<Bell size={23}/>}>{t("newWorkspaceNotificationsAppearHere")}</Empty>}</Modal>}
     {detail&&detail.record.id===detailId&&data&&!dialog&&!copilot&&<RecordDrawer detail={detail} data={data} close={closeRecord} open={setDialog} go={showRecord} copilot={()=>setCopilot(true)} exec={exec} refresh={refresh} canWrite={write}/>}
     {dialog&&data&&<Dialogs key={dialog.kind+"-"+(dialog.record?.id??"")} state={dialog} data={data} exec={exec} read={read} close={()=>setDialog(undefined)} done={done} refresh={refresh}/>}
@@ -209,17 +221,29 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
     {showAccept&&acceptInvite&&<Modal title={t("joinAWorkspace")} description={t("acceptAs",{email:isolate(user.email)})} close={()=>setShowAccept(false)}><Form action={t("acceptInvitation")} onSave={async()=>{await acceptInvite();setShowAccept(false);}}><p>{t("youLlBeSwitchedToTheInvitedWorkspace")}</p></Form></Modal>}
   </div></RegionalContext.Provider>;
 }
-function SearchDialog({read,close,select}:{read:Read;close:()=>void;select:(id:string)=>void}) {
+type Shortcut={name:string;icon:typeof Home;run:()=>void};
+function SearchDialog({read,close,select,shortcuts}:{read:Read;close:()=>void;select:(id:string)=>void;shortcuts:Shortcut[]}) {
   const t=useCopy();
   const {locale}=useFormatting();
-  const [q,setQ]=useState(""),[hits,setHits]=useState<SearchResult[]>([]),[error,setError]=useState(""),[busy,setBusy]=useState(false);
+  const [q,setQ]=useState("");
+  const [response,setResponse]=useState<{query:string;hits:SearchResult[];error?:string}>();
+  const query=q.trim();
+  const current=response?.query===query?response:undefined;
+  const actions=shortcuts.filter(action=>searchText(action.name).toLowerCase().includes(searchText(query).toLowerCase()));
   useEffect(()=>{
-    if(!q.trim()){setHits([]);return;}
-    let live=true;setBusy(true);
-    const timer=setTimeout(()=>{read<SearchResult[]>({kind:"search",q}).then(result=>{if(live)setHits(result);}).catch(e=>{if(live)setError(e.message);}).finally(()=>{if(live)setBusy(false);});},180);
+    if(!query)return;
+    let live=true;
+    const timer=setTimeout(()=>{read<SearchResult[]>({kind:"search",q:query}).then(hits=>{if(live)setResponse({query,hits});}).catch(e=>{if(live)setResponse({query,hits:[],error:e.message});});},180);
     return ()=>{live=false;clearTimeout(timer);};
-  },[q,read]);
-  return <Modal title={t("searchWorkspace")} description={t("findRecordsByName")} close={close}><label className="search-field search-modal"><Search size={18}/><input dir="auto" autoFocus aria-label={t("searchAllRecords")} value={q} onChange={e=>{setQ(e.target.value);setError("");}} placeholder={t("searchForARecord")}/></label>{error&&<ErrorNotice text={error}/>}<div className="search-results">{q.trim()?(busy?<p role="status">{t("searching")}</p>:hits.length?hits.map(hit=><button key={hit.id} onClick={()=>select(hit.id)}><Layers3 size={17}/><span><bdi dir="auto">{hit.title}</bdi><small>{locale==="fa-IR"?hit.object_fa??hit.object:hit.object}</small></span><ArrowUpRight size={15}/></button>):<p>{t("noMatchingRecordsText")}</p>):<p><Command size={16}/> {t("searchAcrossAllObjectsInThisWorkspace")}</p>}</div></Modal>;
+  },[query,read]);
+  return <Modal title={t("searchWorkspace")} description={t("commandDescription")} close={close}>
+    <label className="search-field search-modal"><Search size={18}/><input dir="auto" autoFocus aria-label={t("searchAllRecords")} value={q} onChange={e=>setQ(e.target.value)} maxLength={200} placeholder={t("searchForARecord")}/></label>
+    {current?.error&&<ErrorNotice text={current.error}/>}
+    <div className="search-results command-results">
+      {actions.length>0&&<section aria-label={t("quickActions")}><h3><Command size={14}/>{t("quickActions")}</h3><div className="command-grid">{actions.map(({name,icon:Icon,run})=><button key={name} onClick={()=>{close();run();}}><Icon size={17}/><span>{name}</span><ArrowUpRight size={15}/></button>)}</div></section>}
+      {query&&<section aria-label={t("records")}><h3><Layers3 size={14}/>{t("records")}</h3>{!current?<p role="status">{t("searching")}</p>:current.hits.length?current.hits.map(hit=><button key={hit.id} onClick={()=>select(hit.id)}><Layers3 size={17}/><span><bdi dir="auto">{hit.title}</bdi><small>{locale==="fa-IR"?hit.object_fa??hit.object:hit.object}</small></span><ArrowUpRight size={15}/></button>):!current.error&&<p>{t("noMatchingRecordsText")}</p>}</section>}
+    </div>
+  </Modal>;
 }
 function Settings({data,read,manage,perform,open,refreshKey}:{data:Bootstrap;read:Read;manage:boolean;perform:(action:string,arg:unknown,message:string)=>Promise<void>;open:(state:DialogState)=>void;refreshKey:number}) {
   const t=useCopy();
@@ -256,10 +280,11 @@ function Settings({data,read,manage,perform,open,refreshKey}:{data:Bootstrap;rea
     {tab===t("audit")&&<section className="surface settings-panel"><div className="panel-head"><div><h2>{t("auditActivity")}</h2><p>{t("recentPermissionsAndConfigurationChanges")}</p></div></div>{data.audit.map(a=><div key={a.id} className="setting-row"><ClipboardList size={17}/><strong>{auditLabel(locale,a.event)}</strong><small>{date(a.created_at)}</small></div>)}</section>}
   </div>;
 }
-function Automations({data,open,toggle,retry}:{data:Bootstrap;open:(state:DialogState)=>void;toggle:(id:string,on:boolean)=>void;retry:(id:string)=>void}) {
+function Automations({data,read,open,toggle,retry}:{data:Bootstrap;read:Read;open:(state:DialogState)=>void;toggle:(id:string,on:boolean)=>void;retry:(id:string)=>void}) {
   const t=useCopy();
-  return <div className="page"><div className="page-head"><div><h1>{t("automations")}</h1><p>{t("turnRoutineChangesIntoConsistentNextSteps")}</p></div><Button variant="primary" onClick={()=>open({kind:"workflow"})}><Plus size={16}/> {t("newAutomation")}</Button></div><section className="surface settings-panel"><div className="panel-head"><div><h2>{t("workspaceRules")}</h2><p>{t("stageAndScheduleTriggers")}</p></div></div>{data.workflows.length?data.workflows.map(flow=><div className="setting-row" key={flow.id}><span className="metric-icon purple"><Workflow size={18}/></span><div><strong dir="auto">{flow.name}</strong><small>{flow.trigger==="stage"?t("stageChange"):t("schedule")} · {t("runCount",{count:flow.runs})}</small></div><span className="pill">{flow.enabled?t("active"):t("paused")}</span><Button onClick={()=>toggle(flow.id,!flow.enabled)}>{flow.enabled?t("pause"):t("enable")}</Button></div>):<Empty title={t("noAutomationsYet")} icon={<Workflow size={24}/>}>{t("createARuleToAssignRecordsAddTasksOrSendInAppNotifications")}</Empty>}</section>
-    {data.failedJobs.length>0&&<section className="surface settings-panel"><div className="panel-head"><h2>{t("jobsNeedingAttention")}</h2></div>{data.failedJobs.map(job=><div className="setting-row" key={job.id}><span className="metric-icon purple"><Workflow size={18}/></span><div><strong>{t("failedJob")}</strong><small>{t("jobAttempts",{count:job.attempts})} · <bdi dir="ltr">{job.id.slice(0,8)}</bdi></small></div><Button onClick={()=>retry(job.id)}>{t("retryJob")}</Button></div>)}</section>}</div>;
+  const [history,setHistory]=useState<{id:string;name:string}>();
+  return <div className="page"><div className="page-head"><div><h1>{t("automations")}</h1><p>{t("turnRoutineChangesIntoConsistentNextSteps")}</p></div><Button variant="primary" onClick={()=>open({kind:"workflow"})}><Plus size={16}/> {t("newAutomation")}</Button></div><section className="surface settings-panel"><div className="panel-head"><div><h2>{t("workspaceRules")}</h2><p>{t("stageAndScheduleTriggers")}</p></div></div>{data.workflows.length?data.workflows.map(flow=><div className="setting-row" key={flow.id}><span className="metric-icon purple"><Workflow size={18}/></span><div><strong dir="auto">{flow.name}</strong><small>{flow.trigger==="stage"?t("stageChange"):t("schedule")} · {t("runCount",{count:flow.runs})}</small></div><span className="pill">{flow.enabled?t("active"):t("paused")}</span><div className="row-actions"><Button onClick={()=>setHistory(flow)}>{t("runHistory")}</Button><Button onClick={()=>toggle(flow.id,!flow.enabled)}>{flow.enabled?t("pause"):t("enable")}</Button></div></div>):<Empty title={t("noAutomationsYet")} icon={<Workflow size={24}/>}>{t("createARuleToAssignRecordsAddTasksOrSendInAppNotifications")}</Empty>}</section>
+    {data.failedJobs.length>0&&<section className="surface settings-panel"><div className="panel-head"><h2>{t("jobsNeedingAttention")}</h2></div>{data.failedJobs.map(job=><div className="setting-row" key={job.id}><span className="metric-icon purple"><Workflow size={18}/></span><div><strong>{t("failedJob")}</strong><small>{t("jobAttempts",{count:job.attempts})} · <bdi dir="ltr">{job.id.slice(0,8)}</bdi></small></div><Button onClick={()=>retry(job.id)}>{t("retryJob")}</Button></div>)}</section>}{history&&<WorkflowHistory key={history.id} {...history} read={read} close={()=>setHistory(undefined)}/>}</div>;
 }
 function Copilot({mode,people,record,exec,close,go,enable,refresh}:{mode:string;people:Bootstrap["people"];record?:Detail;exec:Execute;close:()=>void;go:(id:string)=>void;enable:()=>void;refresh:()=>void}) {
   const t=useCopy();

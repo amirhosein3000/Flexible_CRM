@@ -14,7 +14,7 @@ For release require zero cross-tenant disclosures in records, relationships, imp
 ## Verified in this checkout
 
 - Lint, TypeScript checking and the production build passed.
-- Nineteen automated tests passed. Integration cases ran against embedded PostgreSQL 18.6 with restricted runtime roles and RLS. The detailed coverage and remaining verification gates are in the [QA handoff](qa-handoff.md).
-- The bilingual Playwright suite passed in Chrome against the actual Next.js handlers. It verified default Persian rendering, RTL and LTR, mobile navigation and title fit, locale persistence, localized errors, Persian search, Jalali entry, CSV exports, and Copilot approvals. The run captured 14 English and 18 Persian screenshots.
+- Twenty automated tests passed. Integration cases ran against embedded PostgreSQL 18.6 with restricted runtime roles and RLS. The detailed coverage and remaining verification gates are in the [QA handoff](qa-handoff.md).
+- The bilingual Playwright suite passed in Chrome against the actual Next.js handlers. It verified default Persian rendering, RTL and LTR, mobile navigation and title fit, locale persistence, localized errors, Persian search, Jalali entry, CSV exports, and Copilot approvals. The run captured 16 English and 20 Persian screenshots.
 - One warmed embedded benchmark with 50,000 synthetic records and 15 sequential first-page requests measured 79.0 ms median and 171.4 ms p95 after storing the title search document. Production concurrency and representative workload performance remain unverified.
 - The native migration and separate worker attempts could not connect to loopback PostgreSQL in this environment. The embedded migrations and the background task created during Playwright passed. The live provider was not exercised.

@@ -5,7 +5,7 @@ import {activity,addField,addObject,addPipeline,addTask,archiveField,archiveReco
 import {canManage,missing,Problem,rows,withScope,type Scope} from "../../../../src/domain/db";
 import {id,parse,prefixSearch} from "../../../../src/domain/validation";
 import {accept,addRelation,applyTemplate,commitImport,deleteView,detail,exportCsv,invite,link,manageMember,previewImport,saveView,unlink} from "../../../../src/domain/workspace";
-import {retryWorkflowJob,saveWorkflow,setWorkflow} from "../../../../src/domain/workflows";
+import {retryWorkflowJob,saveWorkflow,setWorkflow,workflowHistory} from "../../../../src/domain/workflows";
 import {requestLocale} from "../../../../src/i18n/config";
 import {regionalSettings,saveRegion} from "../../../../src/domain/region";
 import {body,guard,json,protect} from "../../../../src/server/http";
@@ -38,6 +38,7 @@ export async function GET(request:Request,context:Params) {
     const kind=query.get("kind");
     return withScope(user,workspace,async scope=>{
       if(kind==="detail") return json(await detail(scope,parse(id,query.get("id"))));
+      if(kind==="workflow-history") return json(await workflowHistory(scope,query.get("id")));
       if(kind==="list"||kind==="export") {
         const objectId=parse(id,query.get("objectId"));
         const options=Object.fromEntries(query.entries()) as Record<string,unknown>;

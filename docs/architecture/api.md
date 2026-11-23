@@ -7,7 +7,7 @@
 | GET /api/auth | Current session and its active workspace memberships |
 | POST /api/auth | Sign in or create an account with a valid workspace invitation |
 | DELETE /api/auth | Revoke the current session |
-| GET /api/crm/{workspace}?kind=… | Workspace bootstrap, record list or detail, workspace search, and role-scoped CSV export |
+| GET /api/crm/{workspace}?kind=… | Workspace bootstrap, record list or detail, workspace search, role-scoped CSV export, and workflow run history for workspace managers |
 | POST /api/crm/{workspace} | Origin-checked command with an allowlisted action and typed data payload |
 | GET /api/health | Verifies the database connection without exposing configuration |
 

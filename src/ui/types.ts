@@ -6,7 +6,7 @@ export type Space = {id:string;name:string;role:Role};
 export type Person = {id:string;name:string;email:string;role:Role};
 import type {Region} from "../i18n/config";
 export type Relation = {id:string;source_object:string;target_object:string;label:string;inverse:string;label_fa?:string|null;inverse_fa?:string|null;cardinality:string};
-export type Filters = {archived?:"yes"|"no";q?:string;stageId?:string;ownerId?:string;sort?:string;dir?:"asc"|"desc";fieldId?:string;fieldValue?:string;offset?:number;columns?:string[];mode?:"table"|"board"};
+export type Filters = {archived?:"yes"|"no";q?:string;stageId?:string;pipelineId?:string;ownerId?:string;sort?:string;dir?:"asc"|"desc";fieldId?:string;fieldValue?:string;offset?:number;columns?:string[];mode?:"table"|"board"};
 export type View={id:string;name:string;query:Filters;shared:boolean;creator_id:string};
 export type ListData={object:ObjectDef;fields:Field[];records:RecordRow[];total:number;views:View[]};
 export type Activity={id:string;kind:string;body:string;created_at:string;actor:string;stage_name?:string|null;stage_fa?:string|null};

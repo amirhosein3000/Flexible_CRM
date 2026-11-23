@@ -111,8 +111,15 @@ export async function detail(scope:Scope,recordId:string) {
   return {record:selected,fields:model,activities,edges};
 }
 export async function saveView(scope:Scope,input:unknown) {
-  const data=parse(z.object({name:title,objectId:id,query:z.object({archived:z.enum(["yes","no"]).optional(),q:z.string().max(200).optional(),stageId:id.optional(),ownerId:id.optional(),sort:z.string().max(40).optional(),dir:z.enum(["asc","desc"]).optional(),fieldId:id.optional(),fieldValue:z.string().max(500).optional(),columns:z.array(id).max(40).optional(),mode:z.enum(["table","board"]).optional()}),shared:z.boolean().default(false)}),input);
+  const data=parse(z.object({name:title,objectId:id,query:z.object({archived:z.enum(["yes","no"]).optional(),q:z.string().max(200).optional(),stageId:id.optional(),pipelineId:id.optional(),ownerId:id.optional(),sort:z.string().max(40).optional(),dir:z.enum(["asc","desc"]).optional(),fieldId:id.optional(),fieldValue:z.string().max(500).optional(),columns:z.array(id).max(40).optional(),mode:z.enum(["table","board"]).optional()}),shared:z.boolean().default(false)}),input);
   if(data.shared) requireRole(scope,canManage);
+  if(data.query.mode==="board") {
+    const {pipelineId,stageId}=data.query;
+    if(!pipelineId||!await one(scope.tx,`SELECT 1 FROM pipelines p WHERE p.workspace_id=$1 AND p.object_id=$2 AND p.id=$3
+      AND ($4::uuid IS NULL OR EXISTS (SELECT 1 FROM stages s WHERE s.workspace_id=p.workspace_id AND s.pipeline_id=p.id AND s.id=$4))`,[scope.workspace,data.objectId,pipelineId,stageId??null])) throw missing();
+    data.query.archived=undefined;
+    data.query.columns=undefined;
+  }
   await list(scope,data.objectId,{...data.query,limit:1});
   const row=await one<{id:string}>(scope.tx,"INSERT INTO views(workspace_id,object_id,creator_id,name,query,shared) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",[scope.workspace,data.objectId,scope.actor,data.name,JSON.stringify(data.query),data.shared]);
   await audit(scope,"view.created",row.id);

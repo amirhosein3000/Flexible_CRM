@@ -7,7 +7,7 @@ import {addField,addTask,archiveRecord,restoreRecord,setLayout,updatePipeline,li
 import {ask,resolveAction,setAi} from "../src/domain/ai.ts";
 import {rows,transaction,withScope} from "../src/domain/db.ts";
 import {addRelation,commitImport,createWorkspace,csvCell,decodeCsv,exportCsv,link,manageMember,previewImport,registerInvited,saveView,invite} from "../src/domain/workspace.ts";
-import {retryWorkflowJob,runWorkspace,saveWorkflow} from "../src/domain/workflows.ts";
+import {retryWorkflowJob,runWorkspace,saveWorkflow,workflowHistory} from "../src/domain/workflows.ts";
 import {nextOccurrence} from "../src/domain/schedule.ts";
 import {regionalSettings,saveRegion} from "../src/domain/region.ts";
 import {canonicalNumber,formatDate,formatNumber,parseDateInput,parseTimestampInput} from "../src/i18n/format.ts";
@@ -86,7 +86,7 @@ test("workflow retry preserves completed rules and requires workspace management
   const stage=pipe.stages.at(-1)!;
   const record=await withScope(f.user,f.a,s=>saveRecord(s,{objectId:f.opportunity.id,revision:f.opportunity.revision,title:"Workflow failure fixture"}));
   const rule={objectId:f.opportunity.id,trigger:"stage",stageId:stage.id};
-  await withScope(f.user,f.a,s=>saveWorkflow(s,{...rule,name:"QA assigned rule",steps:[{kind:"task",title:"Retry only this rule",assigneeId:member.id}]}));
+  const unstable=await withScope(f.user,f.a,s=>saveWorkflow(s,{...rule,name:"QA assigned rule",steps:[{kind:"task",title:"Roll back until retry"},{kind:"task",title:"Retry only this rule",assigneeId:member.id}]}));
   await withScope(f.user,f.a,s=>saveWorkflow(s,{...rule,name:"QA healthy rule",steps:[{kind:"task",title:"Successful on first attempt"}]}));
   await withScope(f.user,f.a,s=>manageMember(s,{userId:member.id,active:false}));
   try {
@@ -98,6 +98,12 @@ test("workflow retry preserves completed rules and requires workspace management
     const jobs=await withScope(f.user,f.a,s=>rows<{id:string;attempts:number}>(s.tx,"SELECT id,attempts FROM outbox WHERE workspace_id=$1 AND outcome='failed' AND payload->>'recordId'=$2",[f.a,record.id]));
     assert.equal(jobs.length,1);
     assert.equal(jobs[0].attempts,1);
+    const failedHistory=await withScope(f.user,f.a,s=>workflowHistory(s,unstable.id));
+    assert.deepEqual(failedHistory.steps,["task","task"]);
+    assert.deepEqual(failedHistory.runs.map(run=>[run.status,run.step_index]),[["failed",1]]);
+    assert.equal((await withScope(f.user,f.a,tasks)).filter(t=>t.title==="Roll back until retry").length,0);
+    await assert.rejects(withScope(viewer,f.a,s=>workflowHistory(s,unstable.id)),status(403));
+    await assert.rejects(withScope(f.user,f.b,s=>workflowHistory(s,unstable.id)),status(404));
     assert.equal((await withScope(f.user,f.a,tasks)).filter(t=>t.title==="Successful on first attempt").length,1);
     await assert.rejects(withScope(viewer,f.a,s=>retryWorkflowJob(s,jobs[0].id)),status(403));
     await assert.rejects(withScope(f.user,f.b,s=>retryWorkflowJob(s,jobs[0].id)),status(404));
@@ -108,9 +114,26 @@ test("workflow retry preserves completed rules and requires workspace management
     const finished=await withScope(f.user,f.a,tasks);
     assert.equal(finished.filter(t=>t.title==="Successful on first attempt").length,1);
     assert.equal(finished.filter(t=>t.title==="Retry only this rule").length,1);
+    assert.equal(finished.filter(t=>t.title==="Roll back until retry").length,1);
+    const recovered=await withScope(f.user,f.a,s=>workflowHistory(s,unstable.id));
+    assert.deepEqual(recovered.runs.map(run=>[run.status,run.step_index]),[["completed",null],["failed",1]]);
   } finally {
     await withScope(f.user,f.a,s=>manageMember(s,{userId:member.id,active:true}));
   }
+});
+test("saved boards retain pipeline and filters and require a matching workspace pipeline",async()=>{
+  const f=await fixture();
+  const [pipe]=await withScope(f.user,f.a,pipelines);
+  const [foreign]=await withScope(f.user,f.b,pipelines);
+  const viewer=(await login("viewer@cairn.example")).user;
+  const query={mode:"board",pipelineId:pipe.id,stageId:pipe.stages[0].id,q:"Platform"};
+  const input={objectId:pipe.object_id,name:"Platform board",query};
+  const board=await withScope(viewer,f.a,s=>saveView(s,input));
+  const [stored]=await withScope(viewer,f.a,s=>rows<{query:typeof query}>(s.tx,"SELECT query FROM views WHERE workspace_id=$1 AND id=$2",[f.a,board.id]));
+  assert.deepEqual(stored.query,query);
+  await assert.rejects(withScope(viewer,f.a,s=>saveView(s,{...input,shared:true})),status(403));
+  await assert.rejects(withScope(f.user,f.a,s=>saveView(s,{...input,query:{...query,pipelineId:foreign.id}})),status(404));
+  await assert.rejects(withScope(f.user,f.a,s=>saveView(s,{...input,query:{...query,stageId:foreign.stages[0].id}})),status(404));
 });
 test("records, relationship endpoints, imports, workflow references, and AI are tenant constrained",async()=>{
   const f=await fixture();

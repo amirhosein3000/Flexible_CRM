@@ -28,12 +28,14 @@ The QA pass used synthetic Studio North and Recruiting Lab data only. No public 
 | --- | --- |
 | Locked package install dry run | Passed using the existing offline npm cache. |
 | ESLint and TypeScript | Both passed. |
-| Node test runner and embedded PostgreSQL 18.6 | 19 passed, 0 failed, 0 skipped. Migrations ran before tests. |
+| Node test runner and embedded PostgreSQL 18.6 | 20 passed, 0 failed, 0 skipped. Migrations ran before tests. |
 | Next.js production build | Passed with Next.js 16.4.3 on Node.js 24.11.1. |
-| Playwright and Chrome | English LTR and Persian RTL suites passed, with desktop and 390 px mobile checks. Captured 14 English and 18 Persian screenshots. |
+| Playwright and Chrome | English LTR and Persian RTL suites passed, with desktop and 390 px mobile checks. Captured 16 English and 20 Persian screenshots. |
 | Application and automation | Health returned 200 in both browser runs. A browser stage change created a task through the embedded worker. The synthetic CLI reached its loopback startup message. |
 
 Playwright exercised invitation onboarding and role-specific navigation, workspace creation and switching, template records, saved views, search, linking, timeline activities, schema and layout configuration, CSV, pipeline editing and stage changes, automation and task creation, Copilot evidence and approval, locale persistence and mobile navigation. Persian tests also covered a localized sign-in error, Persian letter variants, Vazirmatn, localized numerals, Jalali input and canonical CSV values. Integration tests additionally checked expired sessions, permission revalidation, foreign scope, metadata conflicts, job recovery and AI approval replay.
+
+The follow-up browser run also opened due tasks from the localized overview, navigated from keyboard search, saved and restored a filtered board, and opened completed automation step history in both languages. Integration assertions verified failed step recording and successful replay without duplicate actions.
 
 Tenant boundary assertions passed in the embedded database for records, relationship endpoints, import commits, workflow references and retries, AI evidence and threads. The tests exercise role and RLS restrictions. Findings apply to the tested paths and synthetic environment.
 
@@ -41,5 +43,5 @@ Tenant boundary assertions passed in the embedded database for records, relation
 
 - Better Auth and Graphile Worker remain approved dependencies pending integration. The verified checkout uses local credential sessions and a PostgreSQL outbox poller.
 - Native PostgreSQL 18 migrations, role grants, pool and independent worker concurrency still need a connected isolated server. Loopback TCP requests were denied in this QA environment. Embedded PostgreSQL and IPC browser verification ran successfully.
-- Full per-step workflow history, dependency-aware schema changes, saved board views, and stable pagination remain under [the roadmap](roadmap.md).
+- Dependency-aware schema changes and stable pagination remain under [the roadmap](roadmap.md).
 - Live provider, package advisory review, representative multi-user performance, accessibility audit and backup restore drill remain open. Resolve hosting, jurisdiction and data-handling requirements before introducing customer data.

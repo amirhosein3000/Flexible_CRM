@@ -27,7 +27,7 @@ export async function exercisePersian({browser,origin,transport}) {
     await page.getByRole("main").getByRole("button",{name:t(id),exact:true}).click();
   };
   try {
-    const health=await page.goto(origin+"/api/health");
+    const health=await page.goto(origin+"/api/health",{timeout:45000});
     assert.equal(health.status(),200);
     assert.deepEqual(await health.json(),{status:"ready"});
     await page.goto(origin);
@@ -46,8 +46,16 @@ export async function exercisePersian({browser,origin,transport}) {
     const [sidebar,main]=await Promise.all([page.locator(".sidebar").boundingBox(),page.locator("main").boundingBox()]);
     assert.ok(sidebar.x>main.x);
     assert.match(await page.locator(".stat strong").first().innerText(),/[۰-۹]/);
-    assert.match(await page.locator(".page-head h1").first().evaluate(node=>getComputedStyle(node).fontFamily),/Vazirmatn/);
+    assert.match(await page.getByRole("heading",{name:t("workspaceOverview"),exact:true}).evaluate(node=>getComputedStyle(node).fontFamily),/Vazirmatn/);
     await capture("02-overview");
+    await button("reviewDueTasks").click();
+    await heading("tasks");
+    assert.ok(await button("dueNow").evaluate(node=>node.classList.contains("active")));
+    await page.keyboard.press("Control+k");
+    await dialog().getByRole("region",{name:t("quickActions")}).waitFor();
+    await capture("19-command-palette");
+    await dialog().getByRole("button",{name:t("overview"),exact:true}).click();
+    await heading("workspaceOverview");
     await page.keyboard.press("Control+k");
     await page.getByLabel(t("searchAllRecords")).fill("شرکت کیان داده");
     await page.getByRole("button",{name:/شرکت كيان داده/}).waitFor();
@@ -83,6 +91,18 @@ export async function exercisePersian({browser,origin,transport}) {
     const columns=await page.locator(".board-column").evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().x));
     assert.ok(columns[0]>columns[1],"Kanban stages should run right to left");
     await capture("05-pipeline");
+    const boardFilter=page.getByLabel(t("filterRecordsByName"));
+    await boardFilter.fill("Platform");
+    await byButton("Brand strategy retainer").waitFor({state:"hidden"});
+    await button("saveBoard").click();
+    await page.getByLabel(t("viewName")).fill("تابلوی طراحی");
+    await submit("saveBoard");
+    await page.getByText(t("viewSaved"),{exact:true}).waitFor();
+    await button("clear").click();
+    await byButton("Brand strategy retainer").waitFor();
+    await page.getByLabel(t("savedBoards")).selectOption({label:"تابلوی طراحی"});
+    assert.equal(await boardFilter.inputValue(),"Platform");
+    await byButton("Brand strategy retainer").waitFor({state:"hidden"});
 
     await settings("pipelines");
     await button("editPipeline").click();
@@ -110,6 +130,12 @@ export async function exercisePersian({browser,origin,transport}) {
     await page.reload();
     await page.getByText("ارسال پیش‌نویس",{exact:true}).waitFor();
     await capture("07-tasks");
+    await go(t("automations"));
+    await button("runHistory").click();
+    await dialog().getByText(t("historyCreateTask"),{exact:true}).waitFor();
+    await dialog().getByText(t("completed"),{exact:true}).waitFor();
+    await capture("20-run-history");
+    await button("close").click();
     console.log("PASS Persian record, saved view, Kanban, stage edit and automation");
 
     await settings("regionalSettings");
