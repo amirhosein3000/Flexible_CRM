@@ -1,0 +1,16 @@
+node_modules/
+.next/
+*.tsbuildinfo
+.env*
+!.env.example
+.local-pg/
+*.log
+__pycache__/
+next-env.d.ts
+.offline-install/
+.npm-cache/
+.next-*/
+.qa-run/
+screenshots/
+screenshots-bilingual/
+*.zip

@@ -1,0 +1,17 @@
+import type {ObjectDef,Pipeline,RecordRow,Task} from "../domain/crm";
+import type {Field} from "../domain/validation";
+import type {Role,User} from "../domain/db";
+export type {ObjectDef,Pipeline,RecordRow,Task,Field,Role,User};
+export type Space = {id:string;name:string;role:Role};
+export type Person = {id:string;name:string;email:string;role:Role};
+import type {Region} from "../i18n/config";
+export type Relation = {id:string;source_object:string;target_object:string;label:string;inverse:string;label_fa?:string|null;inverse_fa?:string|null;cardinality:string};
+export type Filters = {archived?:"yes"|"no";q?:string;stageId?:string;ownerId?:string;sort?:string;dir?:"asc"|"desc";fieldId?:string;fieldValue?:string;offset?:number;columns?:string[];mode?:"table"|"board"};
+export type View={id:string;name:string;query:Filters;shared:boolean;creator_id:string};
+export type ListData={object:ObjectDef;fields:Field[];records:RecordRow[];total:number;views:View[]};
+export type Activity={id:string;kind:string;body:string;created_at:string;actor:string;stage_name?:string|null;stage_fa?:string|null};
+export type Detail={record:RecordRow;fields:Field[];activities:Activity[];edges:{id:string;record_id:string;title:string;label:string;label_fa?:string|null}[]};
+export type Bootstrap={failedJobs:{id:string;attempts:number}[];region:Region;objects:ObjectDef[];pipelines:Pipeline[];people:Person[];tasks:Task[];relations:Relation[];workflows:{id:string;name:string;trigger:string;enabled:boolean;runs:number;next_run?:string}[];audit:{id:string;event:string;created_at:string}[];notifications:{id:string;message:string;seen:boolean}[];aiMode:string;counts:{object_id:string;stage_id:string|null;pipeline_id:string|null;count:number}[];role:Role};
+export type Execute=<T=unknown>(action:string,data:unknown)=>Promise<T>;
+export type Read=<T>(params:Record<string,string>)=>Promise<T>;
+export type DialogState={kind:string;object?:ObjectDef;pipeline?:Pipeline;fields?:Field[];record?:RecordRow;filters?:Filters;detail?:Detail};
