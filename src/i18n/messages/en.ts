@@ -558,4 +558,20 @@ export default {
   "historyEmpty": "No runs yet",
   "historyEmptyHelp": "Completed and failed attempts appear here after this automation runs.",
   "loadingHistory": "Loading run history…"
+,
+  "personalPreferences": "Personal preferences",
+  "pebbleName": "Pebble",
+  "pebblePreferenceDescription": "A little workspace buddy for finding records and keeping up with follow-ups.",
+  "pebblePreferenceDevice": "Applies to your account in this browser.",
+  "pebbleShow": "Show Pebble on the overview",
+  "pebbleHide": "Hide Pebble",
+  "pebbleHello": "Hi! Want a hand with your next follow-up?",
+  "pebbleCheers": "High five! One small win for the day.",
+  "pebbleAgain": "Another high five! Pebble is on a roll.",
+  "pebbleFindRecord": "Find a record",
+  "pebbleHighFive": "High five",
+  "pebbleNextFollowUp": "Next follow-up",
+  "pebbleOpenLinkedRecord": "Open linked record",
+  "pebbleAnotherTask": "Another task",
+  "pebbleNothingToDo": "You’re caught up on open tasks."
 };

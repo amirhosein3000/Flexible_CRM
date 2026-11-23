@@ -558,4 +558,20 @@ export default {
   "historyEmpty": "هنوز اجرایی ثبت نشده است",
   "historyEmptyHelp": "پس از اجرای این خودکارسازی، تلاش‌های موفق و ناموفق در اینجا نمایش داده می‌شوند.",
   "loadingHistory": "در حال دریافت تاریخچه اجرا…"
+,
+  "personalPreferences": "ترجیحات شخصی",
+  "pebbleName": "ریگو",
+  "pebblePreferenceDescription": "یک همراه کوچک برای پیدا کردن رکوردها و پیگیری کارها.",
+  "pebblePreferenceDevice": "این تنظیم برای حساب شما در همین مرورگر ذخیره می‌شود.",
+  "pebbleShow": "نمایش ریگو در نمای کلی",
+  "pebbleHide": "پنهان کردن ریگو",
+  "pebbleHello": "سلام! برای پیگیری بعدی کمکت کنم؟",
+  "pebbleCheers": "بزن قدش! یه برد کوچیک برای امروز.",
+  "pebbleAgain": "یکی دیگه! ریگو حسابی سرحاله.",
+  "pebbleFindRecord": "پیدا کردن رکورد",
+  "pebbleHighFive": "بزن قدش",
+  "pebbleNextFollowUp": "پیگیری بعدی",
+  "pebbleOpenLinkedRecord": "باز کردن رکورد مرتبط",
+  "pebbleAnotherTask": "کار دیگر",
+  "pebbleNothingToDo": "کار بازی برای پیگیری ندارید."
 };

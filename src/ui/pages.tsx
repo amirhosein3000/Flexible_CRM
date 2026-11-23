@@ -7,11 +7,12 @@ import {useState} from "react";
 import {Avatar,Button,Empty,Form,formText,ObjectIcon} from "./primitives";
 import {workspaceDay} from "../i18n/format";
 import {FieldDisplay,LocalDateInput,formDate} from "./local-values";
+import {PebbleCompanion,type PebbleActions} from "./pebble";
 import type {Bootstrap,DialogState,Field,Filters,ListData,ObjectDef,Pipeline,RecordRow,Task} from "./types";
 const sortCase=(value:string)=>value.toLowerCase();
 type Props={data:Bootstrap;open:(dialog:DialogState)=>void;go:(page:string)=>void;detail:(id:string)=>void;canWrite:boolean};
 const tones=["blue","purple","indigo","amber","green"];
-export function Overview({data,open,go,detail,canWrite,userName}:Props&{userName:string}) {
+export function Overview({data,open,go,detail,canWrite,userName,companion}:Props&{userName:string;companion?:PebbleActions}) {
   const t=useCopy();
   const {locale,number,date,relative,region}=useFormatting();
   const [selected,setSelected]=useState("");
@@ -48,6 +49,7 @@ export function Overview({data,open,go,detail,canWrite,userName}:Props&{userName
         </>}
       </section>
     </header>
+    {companion&&<PebbleCompanion tasks={openTasks} actions={companion}/>}
     <div className="stats" aria-label={t("workspaceMetrics")}>{stats.map(({label,value,icon:Icon,desc,to,color})=><button className="stat" key={label} onClick={()=>go(to)}><div className="stat-top"><span className={"metric-icon "+color}><Icon size={17}/></span><span>{label}</span><ArrowUpRight className="stat-arrow" size={15}/></div><strong>{number(value)}</strong><small>{desc}</small></button>)}</div>
     <div className="overview-columns">
       <section className="surface pipeline-chart"><div className="panel-head"><div><h2>{t("pipelineSnapshot")}</h2><p>{t("currentRecordsByStage")}</p></div>{pipeline&&<select aria-label={t("overviewPipeline")} className="compact" value={pipeline.id} onChange={e=>setSelected(e.target.value)}>{data.pipelines.map(p=><option key={p.id} value={p.id}>{bilingual(locale,p)}</option>)}</select>}</div>

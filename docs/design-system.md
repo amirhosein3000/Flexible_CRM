@@ -4,6 +4,8 @@ Cairn is a relationship workspace for people who return to the same records ever
 
 The overview’s midnight-blue brief borrows the sign-in screen’s orbital motif. It puts the local date, primary actions and due work in one place. Keep the other working surfaces quiet. Keyboard search separates a compact grid of workspace actions from record results.
 
+Pebble is an optional cobalt river-stone character. Every role can turn it on under Settings → Personal preferences, and each account's choice is stored in that browser. When enabled, the overview shows up to three open workspace follow-ups and shortcuts to existing record search and task actions. Pebble animates in response to a high-five and respects reduced-motion preferences. Its card can be hidden from the overview.
+
 - Color: midnight #192333 for primary ink, steel #526276 for secondary, frost #F3F6FA for the navigation rail, white for working surfaces, cobalt #2747DE for actions, and pale blues and violets for status and chart series. Green and amber are reserved for outcomes and deadlines.
 - Typography: system UI sans with a heavier display scale. Use 13–15px for working text, tabular figures for metrics, and 32–38px page titles with tight tracking. Avoid decorative labels.
 - Structure: 236px desktop rail, 60px breadcrumb bar and 32px content gutters on wide screens. Navigation becomes a compact rail and then a mobile disclosure. Tables and boards scroll locally. A record or Copilot can open without losing the underlying list.

@@ -7,6 +7,7 @@ import {ArrowRight,ArrowUpRight,Bell,Building2,Check,ChevronRight,ChevronsUpDown
 import {useCallback,useEffect,useState,type FormEvent} from "react";
 import {Dialogs,RecordDrawer} from "./forms";
 import {Board,Overview,RecordTable,TasksPage} from "./pages";
+import {PebblePreference,usePebblePreference} from "./pebble";
 import {Avatar,Button,Empty,ErrorNotice,Form,formText,Input,Modal,ObjectIcon} from "./primitives";
 import {LanguageSwitch} from "./regional";
 import {WorkflowHistory} from "./workflow-history";
@@ -91,6 +92,7 @@ function WorkspaceForm({close,created}:{close:()=>void;created:(id:string)=>Prom
 }
 function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,acceptInvite}:{user:User;workspace:Space;spaces:Space[];pick:(id:string)=>void;newWorkspace:()=>void;signOut:()=>void;authError:string;acceptInvite?:()=>Promise<void>}) {
   const t=useCopy();
+  const pebble=usePebblePreference(user.id);
   const {locale}=useFormatting();
   const [data,setData]=useState<Bootstrap>();
   const [page,setPage]=useState("overview");
@@ -191,7 +193,13 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
       <header className="topbar"><div className="crumbs"><Button variant="ghost" className="square mobile-menu" aria-label={t("toggleNavigation")} aria-expanded={mobileNav} onClick={()=>setMobileNav(!mobileNav)}><Menu size={21}/></Button><button onClick={()=>go("overview")} className="crumb-home"><bdi dir="auto">{workspace.name}</bdi></button><ChevronRight size={15}/><strong>{currentTitle}</strong></div><div className="top-actions"><LanguageSwitch/><Button variant="ghost" className="square" aria-label={t("notifications")} onClick={()=>setShowNotifications(true)}><Bell size={18}/>{data?.notifications.length? <span className="bell-dot"/>:null}</Button><Button className="copilot-launch" aria-label={t("copilot")} onClick={()=>setCopilot(true)}><Sparkles size={16}/> <span className="copilot-label">{t("copilot")}</span></Button></div></header>
       <main id="main-content" tabIndex={-1}>
         {(error||authError)&&<div className="page-error"><ErrorNotice text={error||authError} retry={()=>{setError("");refresh();}}/></div>}
-        {!props||!data?<Loading/>:section==="overview"?<Overview {...props} userName={user.name}/>
+        {!props||!data?<Loading/>:section==="overview"?<Overview {...props} userName={user.name} companion={pebble.enabled?{
+            search:()=>setShowSearch(true),
+            createTask:write?()=>setDialog({kind:"task"}):undefined,
+            openTasks:()=>go("tasks"),
+            openRecord:showRecord,
+            hide:()=>{pebble.setEnabled(false);document.getElementById("main-content")?.focus();},
+          }:undefined}/>
         :section==="tasks"?<TasksPage key={page} {...props} showDue={sub==="due"} taskChange={task=>void perform("taskStatus",{id:task.id,status:task.status==="open"?"done":"open"},t("taskUpdated"))}/>
         :section==="pipeline"?<Board {...props} pipeline={pipeline} result={currentList} selectedStage={boardStage} filters={filters} setFilters={setFilters} canManage={manage} move={(row,pipeline,stageId)=>{
           if(!currentList)return Promise.resolve();
@@ -202,7 +210,7 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
           const target=choices.find(p=>p.id===query.pipelineId)??choices.find(p=>p.stages.some(s=>s.id===query.stageId))??choices[0];
           if(target)go("pipeline/"+target.id,{...query,archived:undefined,offset:0,stageId:target.stages.some(s=>s.id===query.stageId)?query.stageId:undefined});
         }}/>:<Loading/>)
-        :section==="settings"?<Settings data={data} read={read} manage={manage} perform={perform} open={setDialog} refreshKey={generation}/>
+        :section==="settings"?<Settings data={data} read={read} manage={manage} perform={perform} open={setDialog} refreshKey={generation} pebble={pebble}/>
         :section==="workflow"&&manage?<Automations data={data} read={read} open={setDialog} retry={id=>void perform("retryWorkflowJob",id,t("jobQueued"))} toggle={(id,enabled)=>void perform("setWorkflow",{id,enabled},enabled?t("automationEnabled"):t("automationPaused"))}/>
         :<div className="page"><Empty title={t("thisPageIsnTAvailable")}>{t("chooseAWorkspaceAreaFromTheNavigation")}</Empty></div>}
       </main>
@@ -245,7 +253,7 @@ function SearchDialog({read,close,select,shortcuts}:{read:Read;close:()=>void;se
     </div>
   </Modal>;
 }
-function Settings({data,read,manage,perform,open,refreshKey}:{data:Bootstrap;read:Read;manage:boolean;perform:(action:string,arg:unknown,message:string)=>Promise<void>;open:(state:DialogState)=>void;refreshKey:number}) {
+function Settings({data,read,manage,perform,open,refreshKey,pebble}:{data:Bootstrap;read:Read;manage:boolean;perform:(action:string,arg:unknown,message:string)=>Promise<void>;open:(state:DialogState)=>void;refreshKey:number;pebble:ReturnType<typeof usePebblePreference>}) {
   const t=useCopy();
   const {locale,number,date,calendar}=useFormatting();
   const [tab,setTab]=useState(t("objects")),[selected,setSelected]=useState<ObjectDef>(),[model,setModel]=useState<ListData>(),[error,setError]=useState("");
@@ -255,11 +263,12 @@ function Settings({data,read,manage,perform,open,refreshKey}:{data:Bootstrap;rea
     read<ListData>({kind:"list",objectId:selected.id,limit:"1"}).then(r=>{if(active)setModel(r);}).catch(e=>{if(active)setError(e.message);});
     return ()=>{active=false;};
   },[selected,read,refreshKey]);
-  const tabs=[t("objects"),t("pipelines"),t("relationships"),t("members"),t("copilot"),t("regionalSettings"),...(manage?[t("audit")]:[])];
+  const tabs=[t("objects"),t("pipelines"),t("relationships"),t("members"),t("copilot"),t("regionalSettings"),t("personalPreferences"),...(manage?[t("audit")]:[])];
   const action=tab===t("objects")?{kind:selected?"field":"object",name:selected?t("addField"):t("newObject"),object:selected}:tab===t("relationships")?{kind:"relation",name:t("newRelationship")}:tab===t("members")?{kind:"invite",name:t("inviteMember")}:tab===t("pipelines")?{kind:"pipeline",name:t("newPipeline")}:undefined;
   return <div className="page settings-page"><div className="page-head"><div><h1>{t("workspaceSettings")}</h1><p>{t("shapeHowYourTeamWorksInCairn")}</p></div>{manage&&action&&<Button variant="primary" onClick={()=>open(action)}><Plus size={16}/> {action.name}</Button>}</div>
     <div className="view-tabs">{tabs.map(t=><Button key={t} variant="ghost" className={t===tab?"active":""} onClick={()=>{setTab(t);setError("");setSelected(undefined);}}>{t}</Button>)}</div>
     {error&&<ErrorNotice text={error}/>}
+    {tab===t("personalPreferences")&&<PebblePreference enabled={pebble.enabled} onChange={pebble.setEnabled}/>}
     {tab===t("objects")&&<section className="surface settings-panel"><div className="panel-head"><div><h2>{selected?pluralName(locale,selected):t("dataModel")}</h2><p>{selected?t("fieldsAvailableOnThisObject"):t("objectsDefineTheRecordsYourTeamTracks")}</p></div>{selected&&<div className="row-actions">{manage&&model?.object.id===selected.id&&<Button onClick={()=>open({kind:"layout",object:model.object,fields:model.fields})}>{t("editLayout")}</Button>}<Button onClick={()=>{setSelected(undefined);setModel(undefined);}}>{t("allObjects")}</Button></div>}</div>
       {selected?(model?.object.id===selected.id?(model.fields.length?model.fields.map(f=><div className="setting-row" key={f.id}><Layers3 size={17}/><div><strong dir="auto">{bilingual(locale,f)}</strong><small>{t(fieldKey[f.kind])}{f.required?" · "+t("required"):""}</small></div>{manage&&<Button onClick={()=>void perform("archiveField",{objectId:selected.id,fieldId:f.id},t("fieldArchived"))}>{t("archive")}</Button>}</div>):<Empty title={t("noCustomFields")}>{t("everyRecordHasANameAndCanHaveAnOwner")}</Empty>):<p className="settings-note" role="status">{t("loadingFields")}</p>):<>{data.objects.map(o=><button className="setting-row setting-button" key={o.id} onClick={()=>{setModel(undefined);setSelected(o);}}><span className="metric-icon blue"><ObjectIcon name={o.icon}/></span><span><strong dir="auto">{pluralName(locale,o)}</strong><small>{t("schemaRevision")} {number(o.revision)}</small></span><ChevronRight size={17}/></button>)}{manage&&<div className="template-row"><h3>{t("starterTemplates")}</h3><p>{t("installObjectsAndStagesForABusinessProcess")}</p><Button onClick={()=>void perform("applyTemplate","consulting",t("consultingTemplateReady"))}>{t("consulting")}</Button> <Button onClick={()=>void perform("applyTemplate","recruitment",t("recruitmentTemplateReady"))}>{t("recruitment")}</Button></div>}</>}
     </section>}
