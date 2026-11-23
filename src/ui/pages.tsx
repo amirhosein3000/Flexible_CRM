@@ -2,7 +2,8 @@
 import {useCopy,useFormatting} from "../i18n/client";
 import {bilingual,pluralName,isolate} from "../i18n/messages";
 
-import {Activity,ArrowDown,ArrowDownRight,ArrowLeft,ArrowRight,ArrowUpRight,CalendarClock,Check,ChevronLeft,ChevronRight,ClipboardList,Columns3,Download,Filter,LayoutGrid,List,Plus,Search,Settings2,Target,Upload,Users} from "lucide-react";
+import {Activity,ArrowDown,ArrowUp,ArrowUpDown,ArrowDownRight,ArrowLeft,ArrowRight,ArrowUpRight,CalendarClock,Check,ChevronLeft,ChevronRight,ClipboardList,Columns3,Download,Filter,LayoutGrid,List,Plus,Search,Settings2,Target,Upload,Users} from "lucide-react";
+import styles from "./task-queue.module.css";
 import {useState} from "react";
 import {Avatar,Button,Empty,Form,formText,ObjectIcon} from "./primitives";
 import {workspaceDay} from "../i18n/format";
@@ -25,7 +26,7 @@ export function Overview({data,open,go,detail,canWrite,userName,companion}:Props
   const today=workspaceDay(region.timeZone);
   const overdue=openTasks.filter(task=>task.due_at&&task.due_at<today);
   const dueCount=overdue.length+openTasks.filter(task=>task.due_at===today).length;
-  const stats=[{label:t("pipelineRecords"),value:stageCount,icon:Target,desc:pipeline?bilingual(locale,pipeline):t("allPipelines"),to:"pipeline",color:"blue"},{label:t("openTasks"),value:openTasks.length,icon:ClipboardList,desc:overdue.length?t("countOverdue",{count:overdue.length}):t("followUpQueue"),to:"tasks",color:"purple"},{label:t("totalRecords"),value:total,icon:Users,desc:t("countObjects",{count:data.objects.length}),to:data.objects[0]?"object/"+data.objects[0].id:"settings",color:"cyan"}];
+  const stats=[{label:t("pipelineRecords"),value:stageCount,icon:Target,desc:pipeline?bilingual(locale,pipeline):t("allPipelines"),to:pipeline?"pipeline/"+pipeline.id:"pipeline",color:"blue"},{label:t("openTasks"),value:openTasks.length,icon:ClipboardList,desc:overdue.length?t("countOverdue",{count:overdue.length}):t("followUpQueue"),to:"tasks",color:"purple"},{label:t("totalRecords"),value:total,icon:Users,desc:t("countObjects",{count:data.objects.length}),to:data.objects[0]?"object/"+data.objects[0].id:"settings",color:"cyan"}];
   const create=data.objects.find(o=>o.id===pipeline?.object_id)??data.objects[0];
   return <div className="page overview">
     <header className="overview-brief">
@@ -70,6 +71,15 @@ export function RecordTable({data,result,object,filters,setFilters,open,detail,c
   const activeField=result.fields.find(field=>field.id===filters.fieldId);
   const visible=result.fields.filter(field=>!filters.columns||filters.columns.includes(field.id)).slice(0,5);
   const sort=(key:string)=>setFilters({...filters,sort:key,dir:filters.sort===key&&filters.dir==="asc"?"desc":"asc",offset:0});
+  function sortDirection(key:string) {
+    if ((filters.sort ?? "updated") !== key) return undefined;
+    return filters.dir === "asc" ? "ascending" : "descending";
+  }
+  function sortIndicator(key:string) {
+    const direction = sortDirection(key);
+    const Icon = direction === "ascending" ? ArrowUp : direction === "descending" ? ArrowDown : ArrowUpDown;
+    return <Icon size={13} aria-hidden="true"/>;
+  }
   const params=new URLSearchParams({kind:"export",objectId:object.id});
   for(const [key,value] of Object.entries(filters)) if(typeof value==="string"&&value) params.set(key,value);
   return <div className="page records-page">
@@ -78,7 +88,7 @@ export function RecordTable({data,result,object,filters,setFilters,open,detail,c
     <section className="surface table-surface" aria-busy={loading}>
       <div className="table-toolbar"><label className="search-field"><Search size={16}/><input dir="auto" aria-label={t("filterRecordsByName")} placeholder={t("filterByName")} value={filters.q??""} onChange={e=>setFilters({...filters,q:e.target.value,offset:0})}/></label><Button aria-expanded={showFilters} onClick={()=>setShowFilters(!showFilters)}><Filter size={15}/> {t("filters")} {advanced&&<span className="active-dot"/>}</Button><div className="toolbar-right">{data.pipelines.some(p=>p.object_id===object.id)&&<Button onClick={()=>changeMode(filters)}><Columns3 size={15}/> {t("board")}</Button>}{canManage&&<a className="button secondary" href={"/api/crm/"+workspace+"?"+params}><Download size={15}/> {t("export")}</a>}</div></div>
       {showFilters&&<div className="filter-row"><label>{t("owner")}<select aria-label={t("ownerFilter")} value={filters.ownerId??""} onChange={e=>setFilters({...filters,ownerId:e.target.value||undefined,offset:0})}><option value="">{t("anyone")}</option>{data.people.map(person=><option key={person.id} value={person.id}>{person.name}</option>)}</select></label><label>{t("stage")}<select aria-label={t("stageFilter")} value={filters.stageId??""} onChange={e=>setFilters({...filters,stageId:e.target.value||undefined,offset:0})}><option value="">{t("anyStage")}</option>{data.pipelines.filter(p=>p.object_id===object.id).flatMap(p=>p.stages).map(stage=><option key={stage.id} value={stage.id}>{bilingual(locale,stage)}</option>)}</select></label><label>{t("field")}<select aria-label={t("customFieldFilter")} value={filters.fieldId??""} onChange={e=>setFilters({...filters,fieldId:e.target.value||undefined,fieldValue:undefined,offset:0})}><option value="">{t("none")}</option>{result.fields.map(field=><option key={field.id} value={field.id}>{bilingual(locale,field)}</option>)}</select></label>{activeField&&<CustomFilter key={activeField.id+((activeField.kind==="date"||activeField.kind==="timestamp")?":"+(filters.fieldValue??""):"")} field={activeField} value={filters.fieldValue} change={fieldValue=>setFilters({...filters,fieldValue,offset:0})}/>}<Button variant="ghost" onClick={()=>setFilters({})}>{t("clear")}</Button></div>}
-      {result.records.length?<div className="table-scroll"><table><thead><tr><th><button onClick={()=>sort("title")}>{t("name")} <ArrowDown size={13}/></button></th>{visible.map(field=><th key={field.id}>{["multi","longtext"].includes(field.kind)?field.name:<button onClick={()=>sort(field.id)}>{bilingual(locale,field)}<ArrowDown size={13}/></button>}</th>)}<th>{t("owner")}</th><th>{t("stage")}</th><th><button onClick={()=>sort("updated")}>{t("updated")} <ArrowDown size={13}/></button></th><th><span className="sr-only">{t("openRecord")}</span></th></tr></thead><tbody>{result.records.map((r,index)=><tr key={r.id}><td><button className="record-link" onClick={()=>detail(r.id)} disabled={archived}><span className={"record-icon "+tones[index%tones.length]}><ObjectIcon name={object.icon} size={15}/></span><bdi dir="auto">{r.title}</bdi></button></td>{visible.map(field=><td key={field.id}><FieldDisplay value={r.fields[field.id]} kind={field.kind}/></td>)}<td>{r.owner?<span className="person-cell"><Avatar name={r.owner} size="sm" index={index}/><bdi dir="auto">{r.owner}</bdi></span>:"—"}</td><td>{r.stage?<span className={"pill stage-"+(data.pipelines.flatMap(p=>p.stages).find(s=>s.id===r.stage_id)?.color??"blue")}>{data.pipelines.flatMap(p=>p.stages).find(s=>s.id===r.stage_id)?.name_fa&&locale==="fa-IR"?data.pipelines.flatMap(p=>p.stages).find(s=>s.id===r.stage_id)?.name_fa:r.stage}</span>:"—"}</td><td>{date(r.updated_at)}</td><td>{archived?(canWrite&&<Button aria-label={t("restoreNamed",{name:isolate(r.title)})} onClick={()=>restore(r)}>{t("restore")}</Button>):<Button variant="ghost" className="square" aria-label={t("openNamed",{name:isolate(r.title)})} onClick={()=>detail(r.id)}><ArrowUpRight size={15}/></Button>}</td></tr>)}</tbody></table></div>:<Empty title={filters.q||advanced?t("noMatchingRecords"):t("noRecordsYet")} icon={<List size={24}/>}>{filters.q||advanced?t("tryADifferentFilter"):t("addOrImportARecordToGetStarted")}</Empty>}
+      {result.records.length?<div className="table-scroll"><table><thead><tr><th aria-sort={sortDirection("title")}><button onClick={()=>sort("title")}>{t("name")} {sortIndicator("title")}</button></th>{visible.map(field=><th key={field.id} aria-sort={sortDirection(field.id)}>{["multi","longtext"].includes(field.kind)?bilingual(locale,field):<button onClick={()=>sort(field.id)}>{bilingual(locale,field)}{sortIndicator(field.id)}</button>}</th>)}<th>{t("owner")}</th><th>{t("stage")}</th><th aria-sort={sortDirection("updated")}><button onClick={()=>sort("updated")}>{t("updated")} {sortIndicator("updated")}</button></th><th><span className="sr-only">{t("openRecord")}</span></th></tr></thead><tbody>{result.records.map((r,index)=><tr key={r.id}><td><button className="record-link" onClick={()=>detail(r.id)} disabled={archived}><span className={"record-icon "+tones[index%tones.length]}><ObjectIcon name={object.icon} size={15}/></span><bdi dir="auto">{r.title}</bdi></button></td>{visible.map(field=><td key={field.id}><FieldDisplay value={r.fields[field.id]} kind={field.kind}/></td>)}<td>{r.owner?<span className="person-cell"><Avatar name={r.owner} size="sm" index={index}/><bdi dir="auto">{r.owner}</bdi></span>:"—"}</td><td>{r.stage?<span className={"pill stage-"+(data.pipelines.flatMap(p=>p.stages).find(s=>s.id===r.stage_id)?.color??"blue")}>{data.pipelines.flatMap(p=>p.stages).find(s=>s.id===r.stage_id)?.name_fa&&locale==="fa-IR"?data.pipelines.flatMap(p=>p.stages).find(s=>s.id===r.stage_id)?.name_fa:r.stage}</span>:"—"}</td><td>{date(r.updated_at)}</td><td>{archived?(canWrite&&<Button aria-label={t("restoreNamed",{name:isolate(r.title)})} onClick={()=>restore(r)}>{t("restore")}</Button>):<Button variant="ghost" className="square" aria-label={t("openNamed",{name:isolate(r.title)})} onClick={()=>detail(r.id)}><ArrowUpRight size={15}/></Button>}</td></tr>)}</tbody></table></div>:<Empty title={filters.q||advanced?t("noMatchingRecords"):t("noRecordsYet")} icon={<List size={24}/>}>{filters.q||advanced?t("tryADifferentFilter"):t("addOrImportARecordToGetStarted")}</Empty>}
       <div className="table-footer"><span>{result.total?t("pageRange",{from:(filters.offset??0)+1,to:Math.min((filters.offset??0)+50,result.total),total:result.total}):t("count0Records")}</span><div><Button className="square" aria-label={t("previousPage")} disabled={!filters.offset} onClick={()=>setFilters({...filters,offset:Math.max(0,(filters.offset??0)-50)})}><ChevronLeft size={16}/></Button> <Button className="square" aria-label={t("nextPage")} disabled={(filters.offset??0)+50>=result.total} onClick={()=>setFilters({...filters,offset:(filters.offset??0)+50})}><ChevronRight size={16}/></Button></div></div>
     </section>
   </div>;
@@ -120,13 +130,58 @@ export function Board({data,pipeline,result,selectedStage,filters,setFilters,go,
       return <section key={stage.id} className="board-column" onDragOver={e=>{if(canWrite)e.preventDefault();}} onDrop={e=>{e.preventDefault();const row=result?.records.find(r=>r.id===drag);if(row&&row.stage_id!==stage.id)void move(row,pipeline,stage.id);setDrag("");}}><div className="column-head"><i className={tones[index%tones.length]}/><h2 dir="auto">{bilingual(locale,stage)}</h2><span>{number(count)}</span></div>{cards.length?cards.map(r=><article className="board-card" key={r.id} draggable={canWrite} onDragStart={()=>setDrag(r.id)} onDragEnd={()=>setDrag("")}><button className="board-title" onClick={()=>detail(r.id)}><bdi dir="auto">{r.title}</bdi><ArrowUpRight size={15}/></button><div className="board-meta">{r.owner?<span><Avatar name={r.owner} size="sm"/>{r.owner}</span>:<span>{t("unassigned")}</span>}</div>{canWrite&&<select aria-label={t("moveNamed",{name:isolate(r.title)})} value={stage.id} onChange={e=>void move(r,pipeline,e.target.value)}>{pipeline.stages.map(s=><option key={s.id} value={s.id}>{bilingual(locale,s)}</option>)}</select>}</article>):<div className="column-empty">{t("noRecords")}</div>}{count>cards.length&&<button className="quiet-link" onClick={()=>go("object/"+pipeline.object_id,{...filters,mode:"table",pipelineId:pipeline.id,stageId:stage.id})}>{t("viewAllInTable")} <ArrowRight size={14}/></button>}</section>;
     })}</div></>:<Empty title={t("noPipelinesAvailable")} icon={<LayoutGrid size={24}/>}>{t("createAPipelineFromAWorkspaceObject")}</Empty>}</div>;
 }
-export function TasksPage({data,taskChange,open,detail,canWrite,showDue}:Props&{taskChange:(task:Task)=>void;showDue:boolean}) {
-  const copy=useCopy();
-  const {date,relative,region}=useFormatting();
-  const [filter,setFilter]=useState(showDue?"due":"open");
-  const today=workspaceDay(region.timeZone);
-  const list=data.tasks.filter(t=>filter==="all"||t.status===filter||(filter==="due"&&t.status==="open"&&Boolean(t.due_at&&t.due_at<=today)));
-  return <div className="page"><div className="page-head"><div><h1>{copy("tasks")}</h1><p>{copy("keepTheNextStepVisible")}</p></div>{canWrite&&<Button variant="primary" onClick={()=>open({kind:"task"})}><Plus size={16}/> {copy("newTask")}</Button>}</div><div className="view-tabs">{["open","due","done","all"].map(s=><Button key={s} variant="ghost" className={filter===s?"active":""} onClick={()=>setFilter(s)}>{s==="done"?copy("completed"):s==="open"?copy("open"):s==="due"?copy("dueNow"):copy("all")}</Button>)}</div><section className="surface task-page-list">{list.length?list.map(t=><div className="task-item" key={t.id}><Button className={"square task-check "+(t.status==="done"?"checked":"")} variant="secondary" disabled={!canWrite} aria-label={t.status==="done"?copy("reopenNamed",{name:isolate(t.title)}):copy("completeNamed",{name:isolate(t.title)})} onClick={()=>taskChange(t)}>{t.status==="done"&&<Check size={15}/>}</Button><div><strong dir="auto">{t.title}</strong>{t.record_id&&<button className="quiet-link" onClick={()=>detail(t.record_id!)}><bdi dir="auto">{t.record_title}</bdi> <ArrowUpRight size={12}/></button>}</div><span className="task-assignee">{t.assignee&&<Avatar name={t.assignee} size="sm"/>}{t.assignee??copy("unassigned")}</span><span className="due" title={date(t.due_at)}>{t.due_at?relative(t.due_at):date(t.due_at)}</span></div>):<Empty title={copy("noTasksInThisView")} icon={<Activity size={24}/>}>{copy("tasksYouCreateOrCompleteWillBeOrganizedHere")}</Empty>}</section></div>;
+const taskBuckets = ["queueOverdue", "queueToday", "queueUpcoming", "queueUndated", "completed"] as const;
+function taskBucket(task: Task, today: string) {
+  if (task.status === "done") return "completed";
+  if (!task.due_at) return "queueUndated";
+  if (task.due_at < today) return "queueOverdue";
+  return task.due_at === today ? "queueToday" : "queueUpcoming";
+}
+
+export function TasksPage({data, taskChange, open, detail, canWrite, showDue, userId}: Props & {
+  taskChange: (task: Task) => void; showDue: boolean; userId: string;
+}) {
+  const t = useCopy();
+  const {date, relative, region, number} = useFormatting();
+  const [filter, setFilter] = useState(showDue ? "due" : "open");
+  const [owner, setOwner] = useState("everyone");
+  const today = workspaceDay(region.timeZone);
+  const list = data.tasks.filter(task => {
+    if (owner === "mine" && task.assignee_id !== userId) return false;
+    if (owner === "unassigned" && task.assignee_id) return false;
+    if (filter === "due") return task.status === "open" && task.due_at && task.due_at <= today;
+    return filter === "all" || task.status === filter;
+  });
+  const tabs = [["open","open"],["due","dueNow"],["done","completed"],["all","all"]] as const;
+  return <div className="page">
+    <div className="page-head"><div><h1>{t("tasks")}</h1><p>{t("keepTheNextStepVisible")}</p></div>
+      {canWrite && <Button variant="primary" onClick={() => open({kind:"task"})}><Plus size={16}/>{t("newTask")}</Button>}
+    </div>
+    <div className={styles.toolbar}><div className="view-tabs">{tabs.map(([key,label]) =>
+      <Button key={key} variant="ghost" className={filter === key ? "active" : ""} aria-pressed={filter === key} onClick={() => setFilter(key)}>{t(label)}</Button>)}</div>
+      <select className="compact" aria-label={t("queueOwner")} value={owner} onChange={event => setOwner(event.target.value)}>
+        <option value="everyone">{t("queueEveryone")}</option><option value="mine">{t("queueMine")}</option><option value="unassigned">{t("unassigned")}</option>
+      </select>
+    </div>
+    {taskBuckets.map(bucket => {
+      const items = list.filter(task => taskBucket(task,today) === bucket);
+      if (!items.length) return null;
+      return <section key={bucket} className={"surface " + styles.group}>
+        <h2 className={styles.heading} data-urgent={bucket === "queueOverdue"}>{t(bucket)} <span>{number(items.length)}</span></h2>
+        {items.map(task => <div className={"task-item " + styles.row} key={task.id}>
+          <Button className={"square task-check " + (task.status === "done" ? "checked" : "")} disabled={!canWrite}
+            aria-label={t(task.status === "done" ? "reopenNamed" : "completeNamed",{name:isolate(task.title)})} onClick={() => taskChange(task)}>
+            {task.status === "done" && <Check size={15}/>}
+          </Button>
+          <div className={styles.title}><strong><bdi>{task.title}</bdi></strong>{task.record_id &&
+            <button className="quiet-link" onClick={() => detail(task.record_id!)}><bdi>{task.record_title}</bdi><ArrowUpRight size={12}/></button>}</div>
+          <span className="task-assignee">{task.assignee && <Avatar name={task.assignee} size="sm"/>}<bdi>{task.assignee ?? t("unassigned")}</bdi></span>
+          <span className="due" title={date(task.due_at)}>{task.due_at ? relative(task.due_at) : t("queueUndated")}</span>
+        </div>)}
+      </section>;
+    })}
+    {!list.length && <div className="surface"><Empty title={t("noTasksInThisView")} icon={<Activity size={24}/>}>{t("queueEmptyHint")}</Empty></div>}
+  </div>;
 }
 export function BackButton({onClick}:{onClick:()=>void}){
   const t=useCopy();return <Button variant="ghost" onClick={onClick}><ArrowDownRight size={15}/> {t("back")}</Button>;}

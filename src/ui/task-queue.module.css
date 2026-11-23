@@ -1,0 +1,13 @@
+.toolbar {display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap}
+.toolbar select {width:auto; max-width:100%}
+.group {overflow:hidden; margin-block:.85rem}
+.heading {display:flex; align-items:center; gap:.65rem; padding:.7rem 1rem; margin:0; background:var(--rail,#f3f6fa); font-size:.86rem; line-height:1.5}
+.heading span {color:var(--muted); font-size:.76rem; font-variant-numeric:tabular-nums}
+.heading[data-urgent=true] {color:#943739; background:#fff4f2}
+.title {overflow-wrap:anywhere}
+@media(max-width:600px) {
+  .group .row {display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:.25rem .65rem; align-items:center; padding:.8rem}
+  .row > button {grid-row:1 / 3}
+  .row .title {grid-column:2 / -1}
+  .row > span {font-size:.72rem}
+}

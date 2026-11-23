@@ -1,0 +1,17 @@
+.followUps {
+  margin-block: 16px;
+  padding: 14px 16px;
+  background: var(--surface, #f7f9fd);
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--accent, #2747de);
+  border-radius: 8px;
+}
+.followUps h3 { font-size: 14px; }
+.followUps p, .followUps small { color: var(--muted); font-size: 12px; }
+.followUps ul { list-style: none; padding: 0; margin: 0; }
+.followUps li { display: flex; align-items: center; gap: 10px; padding-block: 8px; }
+.followUps li + li { border-block-start: 1px solid var(--border); }
+.followUps strong, .followUps small { display: block; overflow-wrap: anywhere; }
+.followUps strong { font-size: 14px; }
+.followUps .toggle { width: 26px; height: 26px; padding: 0; flex-shrink: 0; }
+.followUps .toggle[aria-pressed="true"] { background: #e6f5ef; color: #197758; }

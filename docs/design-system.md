@@ -14,3 +14,7 @@ Pebble is an optional cobalt river-stone character. Every role can turn it on un
 - Inspiration: use Linear’s readable density and Attio’s ability to keep record work in one place. The Cairn visual identity comes from its cobalt rail accents and a pipeline overview built from live counts.
 
 [Linear interface refresh](https://linear.app/changelog/2026-03-12-ui-refresh) · [Attio navigation](https://attio.com/help/reference/attio-101/introduction-to-navigating-attio)
+
+## Follow-up surfaces
+
+Use deadline headings and localized counts to organize the task queue. Align mixed-script titles with their row controls and isolate customer text with bdi. In the record drawer, show linked follow-ups under the action bar. Mobile navigation uses a modal rail, returns keyboard focus to the opener on dismissal, and exposes search in the header. See [the design review](design-review.md) for the daily follow-up journey.

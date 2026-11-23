@@ -2,7 +2,8 @@
 import {useCopy,useFormatting} from "../i18n/client";
 import {bilingual,pluralName,isolate} from "../i18n/messages";
 
-import {Link2,MessageSquare,Plus,ArrowDown,ArrowUp,Sparkles,Trash2} from "lucide-react";
+import styles from "./record-followups.module.css";
+import {Check,Link2,MessageSquare,Plus,ArrowDown,ArrowUp,Sparkles,Trash2} from "lucide-react";
 import {useEffect,useRef,useState} from "react";
 import {Avatar,Button,Empty,ErrorNotice,Form,formText,Input,Modal,Select} from "./primitives";
 import {FieldDisplay,LocalDateInput,formDate} from "./local-values";
@@ -131,8 +132,35 @@ export function RecordDrawer({detail,data,close,open,go,copilot,exec,refresh,can
   const t=useCopy();
   const {locale,date}=useFormatting();
   const [error,setError]=useState("");
+  const [saving,setSaving]=useState("");
+  const [notice,setNotice]=useState("");
+  async function toggleTask(task:Detail["followUps"][number]) {
+    setSaving(task.id);
+    setError("");
+    setNotice("");
+    try {
+      await exec("taskStatus",{id:task.id,status:task.status==="open"?"done":"open"});
+      refresh();
+      setNotice(t("taskUpdated"));
+    } catch (cause) {
+      setError(String(cause instanceof Error?cause.message:cause));
+    } finally {
+      setSaving("");
+    }
+  }
   const r=detail.record,object=data.objects.find(o=>o.id===r.object_id);
   return <Modal drawer title={r.title} description={object?bilingual(locale,object):t("record")} close={close}><div className="record-tools"><Button onClick={copilot}><Sparkles size={16}/> {t("askCopilot")}</Button>{canWrite&&object&&<Button onClick={()=>open({kind:"record",object,fields:detail.fields,record:r})}>{t("edit")}</Button>}{canWrite&&<Button onClick={()=>open({kind:"task",record:r})}><Plus size={15}/> {t("task")}</Button>}</div>
+    <section className={styles.followUps}>
+      <h3>{t("recordFollowUps")}</h3>
+      {detail.moreFollowUps&&<small>{t("recordFiveFollowUps")}</small>}
+      {detail.followUps.length ? <ul>{detail.followUps.map(task=><li key={task.id}>
+        <Button className={styles.toggle} aria-pressed={task.status==="done"} disabled={!canWrite||Boolean(saving)} onClick={()=>void toggleTask(task)} aria-label={t(task.status==="open"?"completeNamed":"reopenNamed",{name:isolate(task.title)})}>
+          {task.status==="done"&&<Check size={14}/>}
+        </Button>
+        <div><strong dir="auto">{task.title}</strong><small><bdi dir="auto">{task.assignee??t("unassigned")}</bdi>{task.due_at&&<> · {date(task.due_at)}</>}</small></div>
+      </li>)}</ul> : <p>{t("recordNoFollowUps")}</p>}
+      <span role="status" className="sr-only">{notice}</span>
+    </section>
     <section className="drawer-section"><h3>{t("details")}</h3><dl><div><dt>{t("owner")}</dt><dd>{data.people.find(p=>p.id===r.owner_id)?.name??t("unassigned")}</dd></div>{r.stage_id&&<div><dt>{t("stage")}</dt><dd>{data.pipelines.flatMap(p=>p.stages).find(s=>s.id===r.stage_id)?.[locale==="fa-IR"?"name_fa":"name"]??data.pipelines.flatMap(p=>p.stages).find(s=>s.id===r.stage_id)?.name??"—"}</dd></div>}{detail.fields.filter(f=>!object?.layout.some(section=>section.fieldIds.includes(f.id))).map(f=><div key={f.id}><dt dir="auto">{bilingual(locale,f)}</dt><dd><FieldDisplay value={r.fields[f.id]} kind={f.kind}/></dd></div>)}</dl></section>
     {object?.layout.map((section,index)=><section className="drawer-section" key={index}><h3>{section.name}</h3><dl>{section.fieldIds.map(fid=>detail.fields.find(f=>f.id===fid)).filter(f=>f!==undefined).map(f=><div key={f.id}><dt dir="auto">{bilingual(locale,f)}</dt><dd><FieldDisplay value={r.fields[f.id]} kind={f.kind}/></dd></div>)}</dl></section>)}
     <section className="drawer-section"><div className="section-head"><h3>{t("relationships")}</h3>{canWrite&&<Button variant="ghost" onClick={()=>open({kind:"link",detail})}><Link2 size={15}/> {t("linkRecord")}</Button>}</div>{detail.edges.length?detail.edges.map(edge=><div className="related" key={edge.id}><button className="quiet-link" onClick={()=>go(edge.record_id)}><bdi dir="auto">{edge.title}</bdi></button><span dir="auto">{locale==="fa-IR"?edge.label_fa??edge.label:edge.label}</span>{canWrite&&<Button variant="ghost" className="square" aria-label={t("unlinkNamed",{name:isolate(edge.title)})} onClick={()=>void exec("unlink",edge.id).then(refresh).catch(e=>setError(e.message))}><Trash2 size={15}/></Button>}</div>):<p className="muted">{t("noRecordsLinkedYet")}</p>}</section>

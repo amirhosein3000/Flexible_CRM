@@ -3,8 +3,9 @@ import {RegionalContext,changeCalendar,useCopy,useFormatting} from "../i18n/clie
 import {bilingual,pluralName,isolate,message} from "../i18n/messages";
 import {defaultRegion,resolveLocale,type Calendar} from "../i18n/config";
 
-import {ArrowRight,ArrowUpRight,Bell,Building2,Check,ChevronRight,ChevronsUpDown,ClipboardList,Columns3,Command,Home,Layers3,LogOut,Menu,Plus,Search,Settings2,Sparkles,Workflow} from "lucide-react";
-import {useCallback,useEffect,useState,type FormEvent} from "react";
+import * as NavigationDialog from "@radix-ui/react-dialog";
+import {ArrowRight,ArrowUpRight,Bell,Building2,Check,ChevronRight,ChevronsUpDown,ClipboardList,Columns3,Command,Home,Layers3,LogOut,Menu,Plus,Search,Settings2,Sparkles,Workflow,X} from "lucide-react";
+import {useCallback,useEffect,useRef,useState,type KeyboardEvent as ReactKeyboardEvent,type FormEvent} from "react";
 import {Dialogs,RecordDrawer} from "./forms";
 import {Board,Overview,RecordTable,TasksPage} from "./pages";
 import {PebblePreference,usePebblePreference} from "./pebble";
@@ -114,14 +115,39 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
   const read=useCallback<Read>((params)=>api(endpoint+"?"+new URLSearchParams(params)),[endpoint]);
   const exec=useCallback<Execute>((action,data)=>api(endpoint,"POST",{action,data}),[endpoint]);
   const refresh=()=>setGeneration(g=>g+1);
+  const navigationTrigger=useRef<HTMLButtonElement>(null);
   const go=useCallback((next:string,query:Filters={})=>{
     setPage(next);setFilters(query);setMobileNav(false);setError("");
-    window.history.replaceState(null,"",next==="overview"?location.pathname:"#"+next);
-  },[]);
+    const url=next==="overview"?location.pathname:"#"+next;
+    const state={...history.state,cairn:{workspace:workspace.id,query}};
+    if(next===(location.hash.slice(1)||"overview")) history.replaceState(state,"",url);
+    else {
+      history.replaceState({...history.state,cairn:{workspace:workspace.id,query:filters}},"");
+      history.pushState(state,"",url);
+    }
+  },[workspace.id,filters]);
   useEffect(()=>{
-    const hash=window.location.hash.slice(1);
-    if(/^(overview|tasks(?:\/due)?|settings|workflow|pipeline(?:\/[a-f0-9-]+){0,2}|object\/[a-f0-9-]+)$/.test(hash)) setPage(hash);
-  },[]);
+    function restore(){
+      const hash=window.location.hash.slice(1);
+      if(hash==="main-content")return;
+      const saved=history.state?.cairn;
+      const valid=/^(overview|tasks(?:\/due)?|settings|workflow|pipeline(?:\/[a-f0-9-]+){0,2}|object\/[a-f0-9-]+)$/.test(hash);
+      setPage(valid&&(!saved||saved.workspace===workspace.id)?hash:"overview");
+      setFilters(saved?.workspace===workspace.id?saved.query??{}:{});
+      setMobileNav(false);setError("");setDetailId("");setDetail(undefined);
+      setDialog(undefined);setShowSearch(false);setShowNotifications(false);setCopilot(false);
+    }
+    restore();
+    window.addEventListener("popstate",restore);
+    return ()=>window.removeEventListener("popstate",restore);
+  },[workspace.id]);
+  useEffect(()=>{
+    if(!mobileNav)return;
+    const viewport=window.matchMedia("(max-width:760px)");
+    const resized=()=>{if(!viewport.matches)setMobileNav(false);};
+    viewport.addEventListener("change",resized);
+    return ()=>viewport.removeEventListener("change",resized);
+  },[mobileNav]);
   useEffect(()=>{
     let live=true;
     read<Bootstrap>({kind:"bootstrap"}).then(value=>{if(live)setData(value);}).catch(e=>{if(live)setError(e.message);});
@@ -129,7 +155,7 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
   },[read,generation]);
   useEffect(()=>{
     const key=(e:KeyboardEvent)=>{
-      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k") {e.preventDefault();setShowSearch(s=>!s);}
+      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k") {e.preventDefault();setMobileNav(false);setShowSearch(s=>!s);}
     };
     window.addEventListener("keydown",key);
     return ()=>window.removeEventListener("keydown",key);
@@ -175,22 +201,28 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
   const currentTitle=selectedObject?pluralName(locale,selectedObject):({overview:t("overview"),tasks:t("tasks"),pipeline:t("pipeline"),workflow:t("automations"),settings:t("settings")}[section]??t("overview"));
   const nav=[{id:"overview",name:t("overview"),icon:Home},{id:"pipeline",name:t("pipeline"),icon:Columns3},{id:"tasks",name:t("tasks"),icon:ClipboardList}];
   const props=data?{data,open:setDialog,go,detail:showRecord,canWrite:write}:undefined;
-  return <RegionalContext.Provider value={data?.region??defaultRegion}><div className={"shell "+(mobileNav?"nav-open":"")}>
-    <a className="skip" href="#main-content">{t("skipToContent")}</a>
-    <aside className="sidebar">
-      <button className="brand" onClick={()=>go("overview")}>{brand}<span>{t("brandName")}</span></button>
-      <div className="space-switch"><span className="space-icon"><Building2 size={16}/></span><label><span className="sr-only">{t("workspace")}</span><select aria-label={t("workspace")} value={workspace.id} onChange={e=>{window.history.replaceState(null,"",location.pathname);pick(e.target.value);}}>{spaces.map(s=><option dir="auto" value={s.id} key={s.id}>{s.name}</option>)}</select><small>{t("workspace")}</small></label><ChevronsUpDown size={14} aria-hidden="true"/></div>
-      <Button variant="ghost" className="rail-search workspace-new" onClick={newWorkspace}><Plus size={17}/><span>{t("newWorkspace")}</span></Button>
-      <Button variant="ghost" className="rail-search" onClick={()=>setShowSearch(true)}><Search size={17}/><span>{t("searchWorkspace")}</span><kbd dir="ltr" aria-hidden="true">Ctrl K</kbd></Button>
+  const navigation=<aside className="sidebar">
+      <div className="rail-heading"><button className="brand" onClick={()=>go("overview")}>{brand}<span>{t("brandName")}</span></button>{mobileNav&&<Button className="square" variant="ghost" aria-label={t("close")} onClick={()=>setMobileNav(false)}><X size={18}/></Button>}</div>
+      <div className="space-switch"><span className="space-icon"><Building2 size={16}/></span><label><span className="sr-only">{t("workspace")}</span><select aria-label={t("workspace")} value={workspace.id} onChange={e=>{window.history.replaceState(null,"",location.pathname);pick(e.target.value);}}>{spaces.map(s=><option dir="auto" value={s.id} key={s.id}>{s.name}</option>)}</select><small>{t("workspace")}</small></label><ChevronsUpDown size={14} aria-hidden="true"/><Button variant="ghost" className="square workspace-new" title={t("newWorkspace")} aria-label={t("newWorkspace")} onClick={()=>{setMobileNav(false);newWorkspace();}}><Plus size={16}/></Button></div>
+      <Button variant="ghost" className="rail-search" onClick={()=>{setMobileNav(false);setShowSearch(true);}}><Search size={17}/><span>{t("searchWorkspace")}</span><kbd dir="ltr" aria-hidden="true">Ctrl K</kbd></Button>
       <nav aria-label={t("workspaceNavigation")}>
         <div className="nav-group"><div className="nav-label">{t("workspace")}</div>{nav.map(({id,name,icon:Icon})=><button key={id} aria-current={section===id?"page":undefined} className={"nav-item "+(section===id?"selected":"")} onClick={()=>go(id)}><Icon size={18}/><span>{name}</span></button>)}</div>
-        <div className="nav-group"><div className="nav-label">{t("records")}{manage&&<Button variant="ghost" className="square nav-add" aria-label={t("newObject")} title={t("newObject")} onClick={()=>setDialog({kind:"object"})}><Plus size={15}/></Button>}</div>{data?.objects.map(o=><button key={o.id} aria-current={selectedObject?.id===o.id?"page":undefined} className={"nav-item "+(selectedObject?.id===o.id?"selected":"")} onClick={()=>go("object/"+o.id)}><ObjectIcon name={o.icon}/><span dir="auto">{pluralName(locale,o)}</span></button>)}</div>
+        <div className="nav-group"><div className="nav-label">{t("records")}{manage&&<Button variant="ghost" className="square nav-add" aria-label={t("newObject")} title={t("newObject")} onClick={()=>{setMobileNav(false);setDialog({kind:"object"});}}><Plus size={15}/></Button>}</div>{data?.objects.map(o=><button key={o.id} aria-current={selectedObject?.id===o.id?"page":undefined} className={"nav-item "+(selectedObject?.id===o.id?"selected":"")} onClick={()=>go("object/"+o.id)}><ObjectIcon name={o.icon}/><span dir="auto">{pluralName(locale,o)}</span></button>)}</div>
         <div className="nav-group"><div className="nav-label">{t("tools")}</div>{manage&&<button className={"nav-item "+(section==="workflow"?"selected":"")} aria-current={section==="workflow"?"page":undefined} onClick={()=>go("workflow")}><Workflow size={17}/><span>{t("automations")}</span></button>}<button className={"nav-item "+(section==="settings"?"selected":"")} aria-current={section==="settings"?"page":undefined} onClick={()=>go("settings")}><Settings2 size={17}/><span>{t("settings")}</span></button></div>
       </nav>
       <div className="sidebar-bottom"><div className="account"><Avatar name={user.name}/><span><strong><bdi dir="auto">{user.name}</bdi></strong><small>{t(roleKey[workspace.role])}</small></span><Button variant="ghost" aria-label={t("signOut")} className="square" onClick={signOut}><LogOut size={16}/></Button></div></div>
-    </aside>
+    </aside>;
+  return <RegionalContext.Provider value={data?.region??defaultRegion}><div className="shell">
+    <a className="skip" href="#main-content">{t("skipToContent")}</a>
+    {mobileNav?<NavigationDialog.Root open onOpenChange={setMobileNav}><NavigationDialog.Portal>
+      <NavigationDialog.Overlay className="navigation-shade"/>
+      <NavigationDialog.Content className="navigation-panel" aria-describedby={undefined} onCloseAutoFocus={event=>{event.preventDefault();if(!document.querySelector('[role="dialog"][data-state="open"]'))navigationTrigger.current?.focus();}}>
+        <NavigationDialog.Title className="sr-only">{t("workspaceNavigation")}</NavigationDialog.Title>
+        {navigation}
+      </NavigationDialog.Content>
+    </NavigationDialog.Portal></NavigationDialog.Root>:navigation}
     <div className="work-area">
-      <header className="topbar"><div className="crumbs"><Button variant="ghost" className="square mobile-menu" aria-label={t("toggleNavigation")} aria-expanded={mobileNav} onClick={()=>setMobileNav(!mobileNav)}><Menu size={21}/></Button><button onClick={()=>go("overview")} className="crumb-home"><bdi dir="auto">{workspace.name}</bdi></button><ChevronRight size={15}/><strong>{currentTitle}</strong></div><div className="top-actions"><LanguageSwitch/><Button variant="ghost" className="square" aria-label={t("notifications")} onClick={()=>setShowNotifications(true)}><Bell size={18}/>{data?.notifications.length? <span className="bell-dot"/>:null}</Button><Button className="copilot-launch" aria-label={t("copilot")} onClick={()=>setCopilot(true)}><Sparkles size={16}/> <span className="copilot-label">{t("copilot")}</span></Button></div></header>
+      <header className="topbar"><div className="crumbs"><button ref={navigationTrigger} className="button ghost square mobile-menu" aria-label={t("toggleNavigation")} aria-expanded={mobileNav} onClick={()=>setMobileNav(!mobileNav)}><Menu size={21}/></button><button onClick={()=>go("overview")} className="crumb-home"><bdi dir="auto">{workspace.name}</bdi></button><ChevronRight size={15}/><strong>{currentTitle}</strong></div><div className="top-actions"><Button variant="ghost" className="square mobile-search" aria-label={t("searchWorkspace")} onClick={()=>setShowSearch(true)}><Search size={18}/></Button><LanguageSwitch/><Button variant="ghost" className="square" aria-label={t("notifications")} onClick={()=>setShowNotifications(true)}><Bell size={18}/>{data?.notifications.length? <span className="bell-dot"/>:null}</Button><Button className="copilot-launch" aria-label={t("copilot")} onClick={()=>setCopilot(true)}><Sparkles size={16}/> <span className="copilot-label">{t("copilot")}</span></Button></div></header>
       <main id="main-content" tabIndex={-1}>
         {(error||authError)&&<div className="page-error"><ErrorNotice text={error||authError} retry={()=>{setError("");refresh();}}/></div>}
         {!props||!data?<Loading/>:section==="overview"?<Overview {...props} userName={user.name} companion={pebble.enabled?{
@@ -200,7 +232,7 @@ function Shell({user,workspace,spaces,pick,newWorkspace,signOut,authError,accept
             openRecord:showRecord,
             hide:()=>{pebble.setEnabled(false);document.getElementById("main-content")?.focus();},
           }:undefined}/>
-        :section==="tasks"?<TasksPage key={page} {...props} showDue={sub==="due"} taskChange={task=>void perform("taskStatus",{id:task.id,status:task.status==="open"?"done":"open"},t("taskUpdated"))}/>
+        :section==="tasks"?<TasksPage userId={user.id} key={page} {...props} showDue={sub==="due"} taskChange={task=>void perform("taskStatus",{id:task.id,status:task.status==="open"?"done":"open"},t("taskUpdated"))}/>
         :section==="pipeline"?<Board {...props} pipeline={pipeline} result={currentList} selectedStage={boardStage} filters={filters} setFilters={setFilters} canManage={manage} move={(row,pipeline,stageId)=>{
           if(!currentList)return Promise.resolve();
           return perform("saveRecord",{id:row.id,version:row.version,revision:currentList.object.revision,objectId:row.object_id,title:row.title,ownerId:row.owner_id,pipelineId:pipeline.id,stageId},t("stageUpdated"));
@@ -244,12 +276,24 @@ function SearchDialog({read,close,select,shortcuts}:{read:Read;close:()=>void;se
     const timer=setTimeout(()=>{read<SearchResult[]>({kind:"search",q:query}).then(hits=>{if(live)setResponse({query,hits});}).catch(e=>{if(live)setResponse({query,hits:[],error:e.message});});},180);
     return ()=>{live=false;clearTimeout(timer);};
   },[query,read]);
+  function navigateResults(event:ReactKeyboardEvent<HTMLDivElement>){
+    if(event.nativeEvent.isComposing||event.altKey||event.ctrlKey||event.metaKey)return;
+    if(event.key!=="ArrowDown"&&event.key!=="ArrowUp")return;
+    const targets=Array.from(event.currentTarget.querySelectorAll<HTMLElement>("input,.command-results button"));
+    const currentIndex=targets.indexOf(document.activeElement as HTMLElement);
+    if(currentIndex<0||targets.length===1)return;
+    event.preventDefault();
+    const offset=event.key==="ArrowDown"?1:-1;
+    targets[(currentIndex+offset+targets.length)%targets.length].focus();
+  }
   return <Modal title={t("searchWorkspace")} description={t("commandDescription")} close={close}>
+    <div onKeyDown={navigateResults}>
     <label className="search-field search-modal"><Search size={18}/><input dir="auto" autoFocus aria-label={t("searchAllRecords")} value={q} onChange={e=>setQ(e.target.value)} maxLength={200} placeholder={t("searchForARecord")}/></label>
     {current?.error&&<ErrorNotice text={current.error}/>}
     <div className="search-results command-results">
       {actions.length>0&&<section aria-label={t("quickActions")}><h3><Command size={14}/>{t("quickActions")}</h3><div className="command-grid">{actions.map(({name,icon:Icon,run})=><button key={name} onClick={()=>{close();run();}}><Icon size={17}/><span>{name}</span><ArrowUpRight size={15}/></button>)}</div></section>}
       {query&&<section aria-label={t("records")}><h3><Layers3 size={14}/>{t("records")}</h3>{!current?<p role="status">{t("searching")}</p>:current.hits.length?current.hits.map(hit=><button key={hit.id} onClick={()=>select(hit.id)}><Layers3 size={17}/><span><bdi dir="auto">{hit.title}</bdi><small>{locale==="fa-IR"?hit.object_fa??hit.object:hit.object}</small></span><ArrowUpRight size={15}/></button>):!current.error&&<p>{t("noMatchingRecordsText")}</p>}</section>}
+    </div>
     </div>
   </Modal>;
 }

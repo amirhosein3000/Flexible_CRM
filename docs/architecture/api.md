@@ -13,6 +13,8 @@
 
 Commands invoke the same domain authorization used by jobs. Use the application's current routes above. The resource-oriented paths below are a proposed future contract.
 
+Record detail includes up to five workspace-scoped follow-ups linked to the selected record. Open tasks appear first in due-date order. The response sets `moreFollowUps` when additional tasks exist. Completing and reopening a task use the existing `taskStatus` command and its write authorization.
+
 ## Proposed resource-oriented routes
 
 Pilot browser APIs are same-origin. Handlers use typed serialization and share application endpoints with server actions. A session authenticates every tenant route. Workspace path selection is checked against live membership. Prefix workspace routes with /api/v1/workspaces/{workspaceId}.

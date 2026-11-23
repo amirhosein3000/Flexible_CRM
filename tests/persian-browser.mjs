@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {mkdir,readFile} from "node:fs/promises";
 import path from "node:path";
 import {message} from "../src/i18n/messages.ts";
+import {checkNavigationFocus,checkTaskQueue} from "./workspace-interactions.mjs";
 const t=(key,values)=>message("fa-IR",key,values);
 export async function exercisePersian({browser,origin,transport}) {
   const context=await browser.newContext({viewport:{width:1440,height:980},locale:"fa-IR",acceptDownloads:true});
@@ -51,10 +52,16 @@ export async function exercisePersian({browser,origin,transport}) {
     await button("reviewDueTasks").click();
     await heading("tasks");
     assert.ok(await button("dueNow").evaluate(node=>node.classList.contains("active")));
+    await checkTaskQueue(page,"fa-IR");
     await page.keyboard.press("Control+k");
     await dialog().getByRole("region",{name:t("quickActions")}).waitFor();
     await capture("19-command-palette");
     await dialog().getByRole("button",{name:t("overview"),exact:true}).click();
+    await heading("workspaceOverview");
+    await page.goBack();
+    await heading("tasks");
+    assert.equal(await button("dueNow").getAttribute("aria-pressed"),"true");
+    await page.goForward();
     await heading("workspaceOverview");
     await page.keyboard.press("Control+k");
     await page.getByLabel(t("searchAllRecords")).fill("شرکت کیان داده");
@@ -130,6 +137,10 @@ export async function exercisePersian({browser,origin,transport}) {
     await page.reload();
     await page.getByText("ارسال پیش‌نویس",{exact:true}).waitFor();
     await capture("07-tasks");
+    await page.setViewportSize({width:390,height:844});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await capture("23-mobile-queue");
+    await page.setViewportSize({width:1440,height:980});
     await go(t("automations"));
     await button("runHistory").click();
     await dialog().getByText(t("historyCreateTask"),{exact:true}).waitFor();
@@ -235,6 +246,7 @@ export async function exercisePersian({browser,origin,transport}) {
     console.log("PASS Persian Pebble, mobile layout, reduced motion, and hide control");
     assert.ok(await page.locator(".crumbs strong").evaluate(node=>node.scrollWidth<=node.clientWidth),"Mobile page title should fit in the header");
     await capture("10-mobile-overview");
+    await checkNavigationFocus(page,"fa-IR");
     await button("toggleNavigation").click();
     await capture("18-mobile-navigation");
     await go(t("pipeline"));

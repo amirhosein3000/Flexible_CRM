@@ -10,7 +10,7 @@ export type Filters = {archived?:"yes"|"no";q?:string;stageId?:string;pipelineId
 export type View={id:string;name:string;query:Filters;shared:boolean;creator_id:string};
 export type ListData={object:ObjectDef;fields:Field[];records:RecordRow[];total:number;views:View[]};
 export type Activity={id:string;kind:string;body:string;created_at:string;actor:string;stage_name?:string|null;stage_fa?:string|null};
-export type Detail={record:RecordRow;fields:Field[];activities:Activity[];edges:{id:string;record_id:string;title:string;label:string;label_fa?:string|null}[]};
+export type Detail={moreFollowUps:boolean;followUps:Pick<Task,"id"|"title"|"status"|"assignee"|"due_at">[];record:RecordRow;fields:Field[];activities:Activity[];edges:{id:string;record_id:string;title:string;label:string;label_fa?:string|null}[]};
 export type Bootstrap={failedJobs:{id:string;attempts:number}[];region:Region;objects:ObjectDef[];pipelines:Pipeline[];people:Person[];tasks:Task[];relations:Relation[];workflows:{id:string;name:string;trigger:string;enabled:boolean;runs:number;next_run?:string}[];audit:{id:string;event:string;created_at:string}[];notifications:{id:string;message:string;seen:boolean}[];aiMode:string;counts:{object_id:string;stage_id:string|null;pipeline_id:string|null;count:number}[];role:Role};
 export type Execute=<T=unknown>(action:string,data:unknown)=>Promise<T>;
 export type Read=<T>(params:Record<string,string>)=>Promise<T>;

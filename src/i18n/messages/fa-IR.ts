@@ -1,4 +1,13 @@
 export default {
+  "queueOwner": "مسئول وظیفه",
+  "queueEveryone": "همهٔ افراد",
+  "queueMine": "واگذارشده به من",
+  "queueOverdue": "عقب‌افتاده",
+  "queueToday": "سررسید امروز",
+  "queueUpcoming": "پیش رو",
+  "queueUndated": "بدون سررسید",
+  "queueEmptyHint": "برای دیدن وظایف دیگر، فیلتر مسئول یا وضعیت را تغییر دهید.",
+
   "close": "بستن",
   "save": "ذخیره",
   "somethingWentWrong": "مشکلی پیش آمد.",
@@ -7,6 +16,9 @@ export default {
   "tryAgain": "تلاش دوباره",
   "pipelineRecords": "رکوردهای فرایند",
   "allPipelines": "همهٔ فرایندها",
+  "recordFiveFollowUps": "پنج پیگیری نمایش داده می‌شود. وظایف باز در اولویت‌اند.",
+  "recordFollowUps": "پیگیری‌ها",
+  "recordNoFollowUps": "هنوز پیگیری‌ای برای این رکورد ثبت نشده است.",
   "openTasks": "وظایف باز",
   "followUpQueue": "صف پیگیری",
   "totalRecords": "کل رکوردها",

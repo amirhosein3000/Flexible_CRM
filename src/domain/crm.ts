@@ -225,7 +225,7 @@ export async function taskStatus(scope:Scope,input:unknown) {
   await audit(scope,"task."+data.status,data.id);
   return row;
 }
-export type Task={id:string;title:string;due_at:string|null;status:"open"|"done";assignee:string|null;record_id:string|null;record_title:string|null};
+export type Task={id:string;title:string;due_at:string|null;status:"open"|"done";assignee_id:string|null;assignee:string|null;record_id:string|null;record_title:string|null};
 export async function tasks(scope:Scope) {
-  return rows<Task>(scope.tx,"SELECT t.id,t.title,t.due_at::text,t.status,u.name assignee,r.id record_id,r.title record_title FROM tasks t LEFT JOIN records r ON r.workspace_id=t.workspace_id AND r.id=t.record_id AND r.archived_at IS NULL LEFT JOIN users u ON u.id=t.assignee_id WHERE t.workspace_id=$1 ORDER BY t.status DESC,t.due_at NULLS LAST,t.created_at DESC LIMIT 250",ws(scope));
+  return rows<Task>(scope.tx,"SELECT t.id,t.title,t.due_at::text,t.status,t.assignee_id,u.name assignee,r.id record_id,r.title record_title FROM tasks t LEFT JOIN records r ON r.workspace_id=t.workspace_id AND r.id=t.record_id AND r.archived_at IS NULL LEFT JOIN users u ON u.id=t.assignee_id WHERE t.workspace_id=$1 ORDER BY t.status DESC,t.due_at NULLS LAST,t.created_at DESC LIMIT 250",ws(scope));
 }

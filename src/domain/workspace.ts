@@ -103,12 +103,19 @@ export async function unlink(scope:Scope,input:unknown) {
 }
 export async function detail(scope:Scope,recordId:string) {
   const selected=await record(scope,recordId);
-  const [model,activities,edges]=await Promise.all([
+  const [model,activities,edges,followUps]=await Promise.all([
     fields(scope,selected.object_id),
     rows<{id:string;kind:string;body:string;created_at:string;actor:string;stage_name:string|null;stage_fa:string|null}>(scope.tx,"SELECT a.id,a.kind,a.body,a.created_at,u.name actor,s.name stage_name,s.name_fa stage_fa FROM activities a LEFT JOIN users u ON u.id=a.actor_id LEFT JOIN stages s ON s.workspace_id=a.workspace_id AND s.id=a.stage_id WHERE a.workspace_id=$1 AND a.record_id=$2 ORDER BY a.created_at DESC LIMIT 100",[scope.workspace,recordId]),
-    rows<{id:string;record_id:string;title:string;label:string;label_fa:string|null}>(scope.tx,"SELECT e.id,r.id record_id,r.title,CASE WHEN e.source_id=$2 THEN d.label ELSE d.inverse END label,CASE WHEN e.source_id=$2 THEN d.label_fa ELSE d.inverse_fa END label_fa FROM edges e JOIN relations d ON d.workspace_id=e.workspace_id AND d.id=e.relation_id JOIN records r ON r.workspace_id=e.workspace_id AND r.id=CASE WHEN e.source_id=$2 THEN e.target_id ELSE e.source_id END WHERE e.workspace_id=$1 AND $2 IN (e.source_id,e.target_id) AND r.archived_at IS NULL",[scope.workspace,recordId])
+    rows<{id:string;record_id:string;title:string;label:string;label_fa:string|null}>(scope.tx,"SELECT e.id,r.id record_id,r.title,CASE WHEN e.source_id=$2 THEN d.label ELSE d.inverse END label,CASE WHEN e.source_id=$2 THEN d.label_fa ELSE d.inverse_fa END label_fa FROM edges e JOIN relations d ON d.workspace_id=e.workspace_id AND d.id=e.relation_id JOIN records r ON r.workspace_id=e.workspace_id AND r.id=CASE WHEN e.source_id=$2 THEN e.target_id ELSE e.source_id END WHERE e.workspace_id=$1 AND $2 IN (e.source_id,e.target_id) AND r.archived_at IS NULL",[scope.workspace,recordId]),
+    rows<{id:string;title:string;status:"open"|"done";assignee:string|null;due_at:string|null}>(scope.tx,`
+      SELECT t.id,t.title,t.status,u.name AS assignee,t.due_at::text
+      FROM tasks t LEFT JOIN users u ON u.id=t.assignee_id
+      WHERE t.workspace_id=$1 AND t.record_id=$2
+      ORDER BY (t.status='open') DESC,
+        CASE WHEN t.status='open' THEN t.due_at END NULLS LAST,t.created_at DESC,t.id
+      LIMIT 6`,[scope.workspace,recordId])
   ]);
-  return {record:selected,fields:model,activities,edges};
+  return {record:selected,fields:model,activities,edges,followUps:followUps.slice(0,5),moreFollowUps:followUps.length>5};
 }
 export async function saveView(scope:Scope,input:unknown) {
   const data=parse(z.object({name:title,objectId:id,query:z.object({archived:z.enum(["yes","no"]).optional(),q:z.string().max(200).optional(),stageId:id.optional(),pipelineId:id.optional(),ownerId:id.optional(),sort:z.string().max(40).optional(),dir:z.enum(["asc","desc"]).optional(),fieldId:id.optional(),fieldValue:z.string().max(500).optional(),columns:z.array(id).max(40).optional(),mode:z.enum(["table","board"]).optional()}),shared:z.boolean().default(false)}),input);

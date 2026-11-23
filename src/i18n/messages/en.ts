@@ -1,4 +1,13 @@
 export default {
+  "queueOwner": "Task owner",
+  "queueEveryone": "Everyone",
+  "queueMine": "Assigned to me",
+  "queueOverdue": "Overdue",
+  "queueToday": "Due today",
+  "queueUpcoming": "Upcoming",
+  "queueUndated": "No due date",
+  "queueEmptyHint": "Change the owner or status filter to see other tasks.",
+
   "close": "Close",
   "save": "Save",
   "somethingWentWrong": "Something went wrong.",
@@ -7,6 +16,9 @@ export default {
   "tryAgain": "Try again",
   "pipelineRecords": "Pipeline records",
   "allPipelines": "All pipelines",
+  "recordFiveFollowUps": "Showing five follow-ups, with open tasks first.",
+  "recordFollowUps": "Follow-ups",
+  "recordNoFollowUps": "No follow-ups for this record yet.",
   "openTasks": "Open tasks",
   "followUpQueue": "Follow-up queue",
   "totalRecords": "Total records",
@@ -507,7 +519,8 @@ export default {
   "auditAiTaskApproved": "AI task approved",
   "auditAiTaskRejected": "AI task dismissed",
   "auditWorkspaceRegionalSettings": "Regional settings updated",
-  "auditOther": "Workspace event",
+  "auditOther": "Workspace event"
+,
   "listSeparator": ", ",
   "jalaliTimestampExample": "1405/09/02 09:30",
   "chooseFile": "Choose file",
